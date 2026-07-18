@@ -1,0 +1,61 @@
+{
+  "name": "file-converter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portable file converter for video, audio, and image files",
+  "author": "FileConverter contributors",
+  "license": "UNLICENSED",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check-project.js",
+    "check:video": "node scripts/check-video-conversion.js",
+    "check:audio": "node scripts/check-audio-conversion.js",
+    "check:image": "node scripts/check-image-conversion.js",
+    "prepare:icon": "node scripts/create-app-icon.js",
+    "prepackage:portable": "npm run prepare:icon",
+    "package:portable": "electron-builder --win portable",
+    "release:portable": "npm run package:portable && node scripts/create-release-checksum.js"
+  },
+  "build": {
+    "appId": "com.fileconverter.desktop",
+    "productName": "FileConverter",
+    "artifactName": "FileConverter-Portable-${version}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
+    "files": [
+      "src/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "portable/bin",
+        "to": "portable/bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    }
+  },
+  "devDependencies": {
+    "electron": "40.10.2",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "sharp": "^0.35.1"
+  }
+}

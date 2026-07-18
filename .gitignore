@@ -1,0 +1,9 @@
+node_modules/
+dist/
+npm-debug.log*
+.tmp/
+portable/working/
+portable/bin/*.exe
+FileConverter-PortableData/
+.cache/
+*.log

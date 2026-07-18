@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FileConverter</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="logo-mark" aria-hidden="true">FC</div>
+        <div>
+          <p class="eyebrow">PORTABLE FILE TOOL</p>
+          <h1>FileConverter</h1>
+          <p class="subtitle">動画・音声・画像を、わかりやすく変換するためのデスクトップアプリ</p>
+        </div>
+      </header>
+
+      <section class="converter-card" aria-labelledby="converter-title">
+        <div class="section-heading">
+          <span class="step-number">1</span>
+          <div>
+            <h2 id="converter-title">カテゴリを選択</h2>
+            <p>変換したいファイルの種類を選んでください。</p>
+          </div>
+        </div>
+
+        <div class="category-tabs" role="tablist" aria-label="ファイルカテゴリ">
+          <button class="category-button active" type="button" data-category="video">Video</button>
+          <button class="category-button" type="button" data-category="audio">Audio</button>
+          <button class="category-button" type="button" data-category="image">Image</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-heading compact">
+          <span class="step-number">2</span>
+          <div>
+            <h2>ファイルを選択</h2>
+            <p>ローカルにあるファイルを1つ選択します。</p>
+          </div>
+        </div>
+
+        <button id="select-file-button" class="file-select-button" type="button">
+          ファイルを選択
+        </button>
+
+        <dl class="file-details" aria-live="polite">
+          <div><dt>ファイル名</dt><dd id="file-name">未選択</dd></div>
+          <div><dt>拡張子</dt><dd id="source-format">-</dd></div>
+          <div><dt>推定カテゴリ</dt><dd id="inferred-category">-</dd></div>
+        </dl>
+
+        <div id="video-analysis" class="analysis-panel" hidden>
+          <div class="analysis-title">動画解析結果</div>
+          <div class="analysis-grid">
+            <span>長さ<strong id="video-duration">-</strong></span>
+            <span>解像度<strong id="video-resolution">-</strong></span>
+            <span>映像形式<strong id="video-codec">-</strong></span>
+            <span>音声形式<strong id="audio-codec">-</strong></span>
+          </div>
+        </div>
+
+        <div id="audio-analysis" class="analysis-panel" hidden>
+          <div class="analysis-title">音声解析結果</div>
+          <div class="analysis-grid">
+            <span>長さ<strong id="audio-duration">-</strong></span>
+            <span>音声形式<strong id="audio-file-codec">-</strong></span>
+            <span>サンプルレート<strong id="audio-sample-rate">-</strong></span>
+            <span>チャンネル<strong id="audio-channels">-</strong></span>
+          </div>
+        </div>
+
+        <div id="image-analysis" class="analysis-panel" hidden>
+          <div class="analysis-title">画像解析結果</div>
+          <div class="analysis-grid">
+            <span>サイズ<strong id="image-resolution">-</strong></span>
+            <span>画像形式<strong id="image-file-format">-</strong></span>
+            <span>色チャンネル<strong id="image-channels">-</strong></span>
+            <span>ページ数<strong id="image-pages">-</strong></span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-heading compact">
+          <span class="step-number">3</span>
+          <div>
+            <h2>変換先を選択</h2>
+            <p>出力したいファイル形式を指定してください。</p>
+          </div>
+        </div>
+
+        <label class="select-label" for="target-format">変換先形式</label>
+        <select id="target-format"></select>
+
+        <button id="convert-button" class="convert-button" type="button">変換する</button>
+
+        <button id="download-button" class="download-button" type="button" hidden>ダウンロード</button>
+
+        <div id="progress-area" class="progress-area" hidden>
+          <div class="progress-label"><span>変換中</span><span id="progress-percent">0%</span></div>
+          <progress id="conversion-progress" max="100" value="0"></progress>
+        </div>
+
+        <div id="status" class="status" role="status">
+          ファイルを選択して、変換先形式を指定してください。
+        </div>
+      </section>
+
+      <footer>
+        FileConverter <span id="app-version"></span> /
+        すべての変換はアプリ内のエンジンで実行します。PC本体へインストールしません。
+      </footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
