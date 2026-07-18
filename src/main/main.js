@@ -66,7 +66,7 @@ function createWindow() {
     height: 720,
     minWidth: 760,
     minHeight: 620,
-    title: "FileConverter",
+    title: "ConvertBox",
     backgroundColor: "#f4f7fb",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -86,7 +86,7 @@ ipcMain.handle("file:select", async (_event, category) => {
     audio: { name: "音声ファイル", extensions: ["mp3", "wav", "m4a", "aac"] },
     image: { name: "画像ファイル", extensions: ["jpg", "png", "jpeg", "gif", "webp", "svg"] }
   };
-  const testInputPath = process.env.FILE_CONVERTER_TEST_INPUT;
+  const testInputPath = process.env.CONVERTBOX_TEST_INPUT;
   const result = testInputPath
     ? { canceled: false, filePaths: [testInputPath] }
     : await dialog.showOpenDialog({
@@ -201,7 +201,7 @@ ipcMain.handle("conversion:download", async (_event, conversionId) => {
   }
 
   const extension = path.extname(converted.suggestedFileName).slice(1);
-  const testOutputPath = process.env.FILE_CONVERTER_TEST_OUTPUT;
+  const testOutputPath = process.env.CONVERTBOX_TEST_OUTPUT;
   const saveResult = testOutputPath
     ? { canceled: false, filePath: testOutputPath }
     : await dialog.showSaveDialog({

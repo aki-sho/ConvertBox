@@ -15,14 +15,14 @@ async function waitForTarget() {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     try {
       const targets = await fetch(`http://127.0.0.1:${port}/json`).then((response) => response.json());
-      const target = targets.find((item) => item.type === "page" && item.title === "FileConverter");
+      const target = targets.find((item) => item.type === "page" && item.title === "ConvertBox");
       if (target) return target;
     } catch {
       // Electron may still be starting.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error("FileConverterの画面へ接続できませんでした");
+  throw new Error("ConvertBoxの画面へ接続できませんでした");
 }
 
 async function main() {
@@ -68,7 +68,7 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
     return {
-      apiReady: Boolean(window.fileConverter),
+      apiReady: Boolean(window.convertBox),
       version: document.querySelector('#app-version').textContent,
       options: [...document.querySelectorAll('#target-format option')].map((option) => option.value)
     };
@@ -147,7 +147,7 @@ async function main() {
   })()`, true);
   if (!downloaded) throw new Error("ダウンロード処理が完了しませんでした");
 
-  const outputPath = process.env.FILE_CONVERTER_TEST_OUTPUT;
+  const outputPath = process.env.CONVERTBOX_TEST_OUTPUT;
   if (!outputPath || !fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
     throw new Error("画面から変換した出力ファイルが見つかりません");
   }

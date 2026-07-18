@@ -27,8 +27,8 @@ const progressBar = document.querySelector("#conversion-progress");
 const progressPercent = document.querySelector("#progress-percent");
 const appVersionDisplay = document.querySelector("#app-version");
 
-if (!window.fileConverter) {
-  throw new Error("FileConverter APIの読み込みに失敗しました。アプリを再起動してください。");
+if (!window.convertBox) {
+  throw new Error("ConvertBox APIの読み込みに失敗しました。アプリを再起動してください。");
 }
 
 const categoryLabels = {
@@ -47,7 +47,7 @@ let completedConversionId = null;
 
 async function resetCompletedConversion() {
   if (completedConversionId) {
-    await window.fileConverter.discardConversion(completedConversionId);
+    await window.convertBox.discardConversion(completedConversionId);
   }
   completedConversionId = null;
   downloadButton.hidden = true;
@@ -84,7 +84,7 @@ function resetSelectedFile() {
 function updateFormatOptions() {
   targetFormatSelect.replaceChildren();
 
-  window.fileConverter.formats[activeCategory].forEach((format) => {
+  window.convertBox.formats[activeCategory].forEach((format) => {
     const option = document.createElement("option");
     option.value = format;
     option.textContent = format;
@@ -111,7 +111,7 @@ categoryButtons.forEach((button) => {
 
 selectFileButton.addEventListener("click", async () => {
   await resetCompletedConversion();
-  const file = await window.fileConverter.selectFile(activeCategory);
+  const file = await window.convertBox.selectFile(activeCategory);
 
   if (!file) {
     setStatus("ファイル選択をキャンセルしました。");
@@ -134,7 +134,7 @@ selectFileButton.addEventListener("click", async () => {
 
   if (file.category === "video") {
     setStatus("動画ファイルを解析しています...");
-    const analysis = await window.fileConverter.analyzeVideo(file.filePath);
+    const analysis = await window.convertBox.analyzeVideo(file.filePath);
     if (!analysis.ok) {
       setStatus(`動画を解析できませんでした: ${analysis.message}`, "error");
       return;
@@ -149,7 +149,7 @@ selectFileButton.addEventListener("click", async () => {
     setStatus("動画の解析が完了しました。変換先形式を選択してください。", "success");
   } else if (file.category === "audio") {
     setStatus("音声ファイルを解析しています...");
-    const analysis = await window.fileConverter.analyzeAudio(file.filePath);
+    const analysis = await window.convertBox.analyzeAudio(file.filePath);
     if (!analysis.ok) {
       setStatus(`音声を解析できませんでした: ${analysis.message}`, "error");
       return;
@@ -166,7 +166,7 @@ selectFileButton.addEventListener("click", async () => {
     setStatus("音声の解析が完了しました。変換先形式を選択してください。", "success");
   } else if (file.category === "image") {
     setStatus("画像ファイルを解析しています...");
-    const analysis = await window.fileConverter.analyzeImage(file.filePath);
+    const analysis = await window.convertBox.analyzeImage(file.filePath);
     if (!analysis.ok) {
       setStatus(`画像を解析できませんでした: ${analysis.message}`, "error");
       return;
@@ -212,7 +212,7 @@ convertButton.addEventListener("click", async () => {
   await resetCompletedConversion();
   setStatus(`${targetFormatSelect.value} への変換を開始します。`);
 
-  const result = await window.fileConverter.requestConversion({
+  const result = await window.convertBox.requestConversion({
     filePath: selectedFile?.filePath,
     sourceFormat: selectedFile?.extension,
     sourceCategory: selectedFile?.category,
@@ -237,7 +237,7 @@ downloadButton.addEventListener("click", async () => {
 
   downloadButton.disabled = true;
   setStatus("ダウンロード先を選択してください。");
-  const result = await window.fileConverter.downloadConversion(completedConversionId);
+  const result = await window.convertBox.downloadConversion(completedConversionId);
   downloadButton.disabled = false;
 
   if (result.ok) {
@@ -248,7 +248,7 @@ downloadButton.addEventListener("click", async () => {
   setStatus(result.message, result.ok ? "success" : result.canceled ? "info" : "error");
 });
 
-window.fileConverter.onConversionProgress((percent) => {
+window.convertBox.onConversionProgress((percent) => {
   progressArea.hidden = false;
   progressBar.value = percent;
   progressPercent.textContent = `${percent}%`;
@@ -257,7 +257,7 @@ window.fileConverter.onConversionProgress((percent) => {
 
 updateFormatOptions();
 
-window.fileConverter.getAppVersion()
+window.convertBox.getAppVersion()
   .then((version) => {
     appVersionDisplay.textContent = `v${version}`;
   })

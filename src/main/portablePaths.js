@@ -23,7 +23,7 @@ function getBundledRuntimePath() {
 }
 
 function getPortableDataPaths() {
-  const root = path.join(getAppRootPath(), "FileConverter-PortableData");
+  const root = path.join(getAppRootPath(), "ConvertBox-PortableData");
   return {
     root,
     settings: path.join(root, "settings"),

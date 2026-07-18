@@ -1,9 +1,9 @@
 {
-  "name": "file-converter",
+  "name": "convertbox",
   "version": "1.0.0",
   "private": true,
   "description": "Portable file converter for video, audio, and image files",
-  "author": "FileConverter contributors",
+  "author": "ConvertBox contributors",
   "license": "UNLICENSED",
   "main": "src/main/main.js",
   "scripts": {
@@ -18,9 +18,9 @@
     "release:portable": "npm run package:portable && node scripts/create-release-checksum.js"
   },
   "build": {
-    "appId": "com.fileconverter.desktop",
-    "productName": "FileConverter",
-    "artifactName": "FileConverter-Portable-${version}.${ext}",
+    "appId": "com.convertbox.desktop",
+    "productName": "ConvertBox",
+    "artifactName": "ConvertBox-Portable-${version}.${ext}",
     "asar": true,
     "asarUnpack": [
       "node_modules/sharp/**/*",

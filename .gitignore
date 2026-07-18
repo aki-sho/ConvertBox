@@ -4,6 +4,6 @@ npm-debug.log*
 .tmp/
 portable/working/
 portable/bin/*.exe
-FileConverter-PortableData/
+ConvertBox-PortableData/
 .cache/
 *.log

@@ -1,10 +1,10 @@
 # Changelog
 
-FileConverterの主な変更をバージョンごとに記録します。
+ConvertBoxの主な変更をバージョンごとに記録します。
 
 ## 1.0.0 - 2026-07-19
 
-最初の正式リリース。
+最初の正式リリース。旧アプリ名からConvertBoxへ名称を統一。
 
 - Video変換: MP4 / MOV / WebM / AVI
 - Audio変換: MP3 / WAV / M4A / AAC

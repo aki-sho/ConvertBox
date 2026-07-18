@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const packageJson = require("../package.json");
 
-const artifactName = `FileConverter-Portable-${packageJson.version}.exe`;
+const artifactName = `ConvertBox-Portable-${packageJson.version}.exe`;
 const artifactPath = path.join(__dirname, "..", "dist", artifactName);
 const checksumPath = `${artifactPath}.sha256`;
 

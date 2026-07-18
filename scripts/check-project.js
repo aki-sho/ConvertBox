@@ -27,6 +27,26 @@ if (packageJson.version !== "1.0.0") {
   throw new Error(`本番バージョンが正しくありません: ${packageJson.version}`);
 }
 
+if (
+  packageJson.name !== "convertbox"
+  || packageJson.build?.productName !== "ConvertBox"
+  || packageJson.build?.appId !== "com.convertbox.desktop"
+  || packageJson.build?.artifactName !== "ConvertBox-Portable-${version}.${ext}"
+) {
+  throw new Error("ConvertBoxのパッケージまたはビルド設定が正しくありません");
+}
+
+const preloadSource = fs.readFileSync(path.join(__dirname, "..", "src/main/preload.js"), "utf8");
+const portablePathsSource = fs.readFileSync(path.join(__dirname, "..", "src/main/portablePaths.js"), "utf8");
+
+if (!preloadSource.includes('exposeInMainWorld("convertBox"')) {
+  throw new Error("ConvertBoxのrenderer API名が正しくありません");
+}
+
+if (!portablePathsSource.includes('"ConvertBox-PortableData"')) {
+  throw new Error("ConvertBoxのポータブルデータフォルダ名が正しくありません");
+}
+
 if (FORMATS.video.length !== 4 || FORMATS.audio.length !== 4 || FORMATS.image.length !== 6) {
   throw new Error("対応形式の定義が正しくありません");
 }
