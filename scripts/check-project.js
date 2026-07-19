@@ -14,7 +14,9 @@ const requiredFiles = [
   "src/shared/formats.js",
   "src/converter/converterService.js",
   "src/converter/imageConverterService.js",
-  "portable/bin/README.md"
+  "portable/bin/README.md",
+  "scripts/prepare-portable-release.js",
+  "scripts/create-portable-release.js"
 ];
 
 for (const file of requiredFiles) {
@@ -34,6 +36,32 @@ if (
   || packageJson.build?.artifactName !== "ConvertBox-Portable-${version}.${ext}"
 ) {
   throw new Error("ConvertBoxのパッケージまたはビルド設定が正しくありません");
+}
+
+if (
+  packageJson.scripts?.["release:portable"]
+  !== "node scripts/prepare-portable-release.js && npm run package:portable && node scripts/create-portable-release.js"
+) {
+  throw new Error("ポータブル版のリリース生成コマンドが正しくありません");
+}
+
+if (!packageJson.devDependencies?.archiver) {
+  throw new Error("ZIP生成用のarchiverが開発依存関係にありません");
+}
+
+const releaseScriptSource = fs.readFileSync(
+  path.join(__dirname, "..", "scripts/create-portable-release.js"),
+  "utf8"
+);
+for (const requiredText of [
+  "ConvertBox ポータブル版",
+  "ConvertBox-PortableDataフォルダに保存されます。",
+  "アンインストールは、このフォルダを削除するだけです。",
+  "`${zipName}.sha256`"
+]) {
+  if (!releaseScriptSource.includes(requiredText)) {
+    throw new Error(`ZIP版の生成設定が不足しています: ${requiredText}`);
+  }
 }
 
 const preloadSource = fs.readFileSync(path.join(__dirname, "..", "src/main/preload.js"), "utf8");

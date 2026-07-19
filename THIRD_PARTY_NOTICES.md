@@ -16,7 +16,7 @@ The bundled executables report the following build:
 
 The FFmpeg executables are separate programs started by ConvertBox. FFmpeg remains licensed by its respective copyright holders.
 
-Before distributing these binaries publicly, the distributor must preserve the applicable copyright and license notices and provide the exact corresponding source code and build information required by the GPL. The current repository does not contain that corresponding FFmpeg source bundle. Do not publish the bundled executables or the portable EXE until that source bundle and its download location have been prepared.
+Before distributing these binaries publicly, the distributor must preserve the applicable copyright and license notices and provide the exact corresponding source code and build information required by the GPL. The current repository does not contain that corresponding FFmpeg source bundle. Do not publish the bundled executables, portable EXE, or portable ZIP until that source bundle and its download location have been prepared.
 
 ## Sharp
 

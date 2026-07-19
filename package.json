@@ -15,7 +15,7 @@
     "prepare:icon": "node scripts/create-app-icon.js",
     "prepackage:portable": "npm run prepare:icon",
     "package:portable": "electron-builder --win portable",
-    "release:portable": "npm run package:portable && node scripts/create-release-checksum.js"
+    "release:portable": "node scripts/prepare-portable-release.js && npm run package:portable && node scripts/create-portable-release.js"
   },
   "build": {
     "appId": "com.convertbox.desktop",
@@ -52,6 +52,7 @@
     }
   },
   "devDependencies": {
+    "archiver": "^5.3.2",
     "electron": "40.10.2",
     "electron-builder": "^24.13.3"
   },
