@@ -1,8 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const packageJson = require("../package.json");
-const { FORMATS, getExtension, inferCategory } = require("../src/shared/formats");
-const { VIDEO_FORMATS, AUDIO_FORMATS } = require("../src/converter/converterService");
+const { FORMATS, CONVERSION_FORMATS, getExtension, inferCategory } = require("../src/shared/formats");
+const { VIDEO_FORMATS, AUDIO_FORMATS, extractAudio } = require("../src/converter/converterService");
 const { IMAGE_FORMATS } = require("../src/converter/imageConverterService");
 
 const requiredFiles = [
@@ -16,7 +16,8 @@ const requiredFiles = [
   "src/converter/imageConverterService.js",
   "portable/bin/README.md",
   "scripts/prepare-portable-release.js",
-  "scripts/create-portable-release.js"
+  "scripts/create-portable-release.js",
+  "scripts/check-video-to-audio.js"
 ];
 
 for (const file of requiredFiles) {
@@ -25,7 +26,7 @@ for (const file of requiredFiles) {
   }
 }
 
-if (packageJson.version !== "1.0.0") {
+if (packageJson.version !== "1.1.0") {
   throw new Error(`本番バージョンが正しくありません: ${packageJson.version}`);
 }
 
@@ -77,6 +78,10 @@ if (!portablePathsSource.includes('"ConvertBox-PortableData"')) {
 
 if (FORMATS.video.length !== 4 || FORMATS.audio.length !== 4 || FORMATS.image.length !== 6) {
   throw new Error("対応形式の定義が正しくありません");
+}
+
+if (CONVERSION_FORMATS.videoToAudio !== FORMATS.audio || typeof extractAudio !== "function") {
+  throw new Error("動画から音声への変換設定が正しくありません");
 }
 
 if (VIDEO_FORMATS.join(",") !== "MP4,MOV,WebM,AVI") {

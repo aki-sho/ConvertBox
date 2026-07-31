@@ -1,8 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const { FORMATS } = require("../shared/formats");
+const { CONVERSION_FORMATS } = require("../shared/formats");
 
 contextBridge.exposeInMainWorld("convertBox", {
-  formats: FORMATS,
+  formats: CONVERSION_FORMATS,
   getAppVersion: () => ipcRenderer.invoke("app:get-version"),
   selectFile: (category) => ipcRenderer.invoke("file:select", category),
   analyzeVideo: (filePath) => ipcRenderer.invoke("video:analyze", filePath),

@@ -4,6 +4,7 @@ const port = process.argv[2] || "9222";
 const category = process.argv[3] || "video";
 const categorySettings = {
   video: { label: "Video", options: ["MP4", "MOV", "WebM", "AVI"], target: "WebM", analysisId: "video-analysis" },
+  videoToAudio: { label: "動画 → 音声", options: ["MP3", "WAV", "M4A", "AAC"], target: "MP3", analysisId: "video-analysis" },
   audio: { label: "Audio", options: ["MP3", "WAV", "M4A", "AAC"], target: "MP3", analysisId: "audio-analysis" },
   image: { label: "Image", options: ["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"], target: "WebP", analysisId: "image-analysis" }
 };
@@ -75,7 +76,7 @@ async function main() {
   })()`, true);
 
   if (!initial.apiReady) throw new Error("renderer APIが読み込まれていません");
-  if (initial.version !== "v1.0.0") {
+  if (initial.version !== "v1.1.0") {
     throw new Error(`画面のバージョン表示が正しくありません: ${initial.version}`);
   }
   if (initial.options.join(",") !== settings.options.join(",")) {

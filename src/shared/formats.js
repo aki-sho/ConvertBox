@@ -1,13 +1,23 @@
+const VIDEO_FORMATS = Object.freeze(["MP4", "MOV", "WebM", "AVI"]);
+const AUDIO_FORMATS = Object.freeze(["MP3", "WAV", "M4A", "AAC"]);
+const IMAGE_FORMATS = Object.freeze(["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"]);
+
 const FORMATS = Object.freeze({
-  video: Object.freeze(["MP4", "MOV", "WebM", "AVI"]),
-  audio: Object.freeze(["MP3", "WAV", "M4A", "AAC"]),
-  image: Object.freeze(["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"])
+  video: VIDEO_FORMATS,
+  audio: AUDIO_FORMATS,
+  image: IMAGE_FORMATS
+});
+
+const CONVERSION_FORMATS = Object.freeze({
+  ...FORMATS,
+  videoToAudio: AUDIO_FORMATS
 });
 
 const CATEGORY_LABELS = Object.freeze({
   video: "Video",
   audio: "Audio",
   image: "Image",
+  videoToAudio: "動画 → 音声",
   unknown: "不明"
 });
 
@@ -33,6 +43,7 @@ function inferCategory(extension) {
 
 module.exports = {
   FORMATS,
+  CONVERSION_FORMATS,
   CATEGORY_LABELS,
   getExtension,
   inferCategory

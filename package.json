@@ -1,8 +1,8 @@
 {
   "name": "convertbox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Portable file converter for video, audio, and image files",
+  "description": "Portable file converter for video, audio, and image files with video-to-audio extraction",
   "author": "ConvertBox contributors",
   "license": "UNLICENSED",
   "main": "src/main/main.js",
@@ -10,6 +10,7 @@
     "start": "electron .",
     "check": "node scripts/check-project.js",
     "check:video": "node scripts/check-video-conversion.js",
+    "check:video-to-audio": "node scripts/check-video-to-audio.js",
     "check:audio": "node scripts/check-audio-conversion.js",
     "check:image": "node scripts/check-image-conversion.js",
     "prepare:icon": "node scripts/create-app-icon.js",

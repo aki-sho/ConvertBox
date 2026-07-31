@@ -33,6 +33,7 @@ if (!window.convertBox) {
 
 const categoryLabels = {
   video: "Video",
+  videoToAudio: "動画 → 音声",
   audio: "Audio",
   image: "Image",
   unknown: "不明"
@@ -44,6 +45,10 @@ let videoMetadata = null;
 let audioMetadata = null;
 let imageMetadata = null;
 let completedConversionId = null;
+
+function getExpectedSourceCategory(category) {
+  return category === "videoToAudio" ? "video" : category;
+}
 
 async function resetCompletedConversion() {
   if (completedConversionId) {
@@ -124,7 +129,7 @@ selectFileButton.addEventListener("click", async () => {
   sourceFormatDisplay.textContent = file.extension;
   inferredCategoryDisplay.textContent = categoryLabels[file.category];
 
-  if (file.category !== "unknown") {
+  if (file.category !== "unknown" && file.category !== getExpectedSourceCategory(activeCategory)) {
     activeCategory = file.category;
     categoryButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.category === activeCategory);
@@ -146,7 +151,14 @@ selectFileButton.addEventListener("click", async () => {
     videoCodecDisplay.textContent = videoMetadata.videoCodec.toUpperCase();
     audioCodecDisplay.textContent = videoMetadata.audioCodec.toUpperCase();
     analysisPanel.hidden = false;
-    setStatus("動画の解析が完了しました。変換先形式を選択してください。", "success");
+    if (activeCategory === "videoToAudio" && !videoMetadata.hasAudio) {
+      setStatus("この動画には音声トラックがありません。別の動画を選択してください。", "error");
+    } else {
+      const message = activeCategory === "videoToAudio"
+        ? "動画の音声を確認しました。変換先の音声形式を選択してください。"
+        : "動画の解析が完了しました。変換先形式を選択してください。";
+      setStatus(message, "success");
+    }
   } else if (file.category === "audio") {
     setStatus("音声ファイルを解析しています...");
     const analysis = await window.convertBox.analyzeAudio(file.filePath);
@@ -196,6 +208,14 @@ convertButton.addEventListener("click", async () => {
     setStatus("先に対応する動画ファイルを選択し、解析を完了してください。", "error");
     return;
   }
+  if (activeCategory === "videoToAudio" && !videoMetadata) {
+    setStatus("先に音声を取り出す動画ファイルを選択し、解析を完了してください。", "error");
+    return;
+  }
+  if (activeCategory === "videoToAudio" && !videoMetadata.hasAudio) {
+    setStatus("音声トラックがない動画からは音声を取り出せません。", "error");
+    return;
+  }
   if (activeCategory === "audio" && !audioMetadata) {
     setStatus("先に対応する音声ファイルを選択し、解析を完了してください。", "error");
     return;
@@ -206,7 +226,7 @@ convertButton.addEventListener("click", async () => {
   }
 
   convertButton.disabled = true;
-  progressArea.hidden = !["video", "audio", "image"].includes(activeCategory);
+  progressArea.hidden = !["video", "audio", "image", "videoToAudio"].includes(activeCategory);
   progressBar.value = 0;
   progressPercent.textContent = "0%";
   await resetCompletedConversion();
@@ -222,7 +242,7 @@ convertButton.addEventListener("click", async () => {
   });
 
   convertButton.disabled = false;
-  if (result.ok && ["video", "audio", "image"].includes(activeCategory)) {
+  if (result.ok && ["video", "audio", "image", "videoToAudio"].includes(activeCategory)) {
     completedConversionId = result.conversionId;
     downloadButton.hidden = false;
   }
