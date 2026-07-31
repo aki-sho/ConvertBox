@@ -8,6 +8,7 @@ const {
   analyzeAudio,
   convertVideo,
   convertAudio,
+  extractAudio,
   terminateActiveProcesses
 } = require("../converter/converterService");
 const { analyzeImage, convertImage } = require("../converter/imageConverterService");
@@ -83,6 +84,7 @@ function createWindow() {
 ipcMain.handle("file:select", async (_event, category) => {
   const categoryFilters = {
     video: { name: "動画ファイル", extensions: ["mp4", "mov", "webm", "avi"] },
+    videoToAudio: { name: "音声を取り出す動画ファイル", extensions: ["mp4", "mov", "webm", "avi"] },
     audio: { name: "音声ファイル", extensions: ["mp3", "wav", "m4a", "aac"] },
     image: { name: "画像ファイル", extensions: ["jpg", "png", "jpeg", "gif", "webp", "svg"] }
   };
@@ -138,7 +140,8 @@ ipcMain.handle("image:analyze", async (_event, filePath) => {
 });
 
 ipcMain.handle("conversion:request", async (event, conversionRequest) => {
-  if (!conversionRequest || !["video", "audio", "image"].includes(conversionRequest.category)) {
+  const supportedCategories = ["video", "audio", "image", "videoToAudio"];
+  if (!conversionRequest || !supportedCategories.includes(conversionRequest.category)) {
     return { ok: false, message: "対応するカテゴリを選択してください" };
   }
 
@@ -146,11 +149,16 @@ ipcMain.handle("conversion:request", async (event, conversionRequest) => {
     return { ok: false, message: "変換元ファイルと変換先形式を指定してください" };
   }
 
-  if (conversionRequest.sourceCategory !== conversionRequest.category) {
+  const expectedSourceCategory = conversionRequest.category === "videoToAudio"
+    ? "video"
+    : conversionRequest.category;
+
+  if (conversionRequest.sourceCategory !== expectedSourceCategory) {
     const expected = {
       video: "MP4 / MOV / WebM / AVI の動画ファイル",
       audio: "MP3 / WAV / M4A / AAC の音声ファイル",
-      image: "JPG / PNG / JPEG / GIF / WebP / SVG の画像ファイル"
+      image: "JPG / PNG / JPEG / GIF / WebP / SVG の画像ファイル",
+      videoToAudio: "音声トラックを含む MP4 / MOV / WebM / AVI の動画ファイル"
     }[conversionRequest.category];
     return { ok: false, message: `${expected}を選択してください` };
   }
@@ -165,7 +173,8 @@ ipcMain.handle("conversion:request", async (event, conversionRequest) => {
   const convert = {
     video: convertVideo,
     audio: convertAudio,
-    image: convertImage
+    image: convertImage,
+    videoToAudio: extractAudio
   }[conversionRequest.category];
   const result = await convert({
     ...conversionRequest,
@@ -183,7 +192,7 @@ ipcMain.handle("conversion:request", async (event, conversionRequest) => {
     temporaryPath,
     suggestedFileName,
     targetFormat: conversionRequest.targetFormat,
-    category: conversionRequest.category
+    category: conversionRequest.category === "videoToAudio" ? "audio" : conversionRequest.category
   });
 
   return {

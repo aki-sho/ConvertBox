@@ -87,6 +87,7 @@ async function analyzeVideo({ filePath, ffprobePath }) {
     height: videoStream.height || 0,
     videoCodec: videoStream.codec_name || "不明",
     audioCodec: audioStream?.codec_name || "音声なし",
+    hasAudio: Boolean(audioStream),
     sizeBytes: Number(metadata.format?.size || 0),
     formatName: metadata.format?.format_long_name || metadata.format?.format_name || "不明"
   };
@@ -204,6 +205,15 @@ async function convertAudio({ filePath, outputPath, targetFormat, ffmpegPath, du
   });
 }
 
+async function extractAudio({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress }) {
+  return convertWithArguments({
+    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress,
+    supportedFormats: AUDIO_FORMATS,
+    formatArguments: AUDIO_ARGUMENTS,
+    mediaLabel: "動画から音声"
+  });
+}
+
 module.exports = {
   VIDEO_FORMATS,
   AUDIO_FORMATS,
@@ -211,5 +221,6 @@ module.exports = {
   analyzeAudio,
   convertVideo,
   convertAudio,
+  extractAudio,
   terminateActiveProcesses
 };

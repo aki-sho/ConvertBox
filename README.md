@@ -4,11 +4,12 @@ ConvertBox は、Windows向けのインストール不要・ポータブルEXE�
 
 動画・音声・画像ファイルを別形式へ変換できます。変換処理はアプリ内に同梱したエンジンで実行し、PC本体へFFmpegなどをグローバルインストールすることを前提にしません。
 
-## Version 1.0.0
+## Version 1.1.0
 
-`1.0.0` は、ConvertBoxの最初の正式リリースです。次の変換機能を実装しています。
+`1.1.0` は、動画から音声だけを取り出す専用モードを追加した機能アップデートです。
 
 - Video: MP4 / MOV / WebM / AVI
+- 動画 → 音声: MP4 / MOV / WebM / AVI から MP3 / WAV / M4A / AAC
 - Audio: MP3 / WAV / M4A / AAC
 - Image: JPG / PNG / JPEG / GIF / WebP / SVG
 
@@ -23,12 +24,12 @@ ImageのSVG出力は、変換元画像をSVG内へ埋め込んで表示を保つ
 
 ## 使い方
 
-GitHubのReleasesページから、通常は `ConvertBox-Portable-1.0.0.zip` をダウンロードします。
+GitHubのReleasesページから、通常は `ConvertBox-Portable-1.1.0.zip` をダウンロードします。
 
 1. ZIPを展開します。
-2. 作成された `ConvertBox-Portable-1.0.0` フォルダを、書き込み可能な場所へ置きます。
-3. フォルダ内の `ConvertBox-Portable-1.0.0.exe` をダブルクリックします。
-4. Video / Audio / Image のカテゴリを選びます。
+2. 作成された `ConvertBox-Portable-1.1.0` フォルダを、書き込み可能な場所へ置きます。
+3. フォルダ内の `ConvertBox-Portable-1.1.0.exe` をダブルクリックします。
+4. Video / 動画 → 音声 / Audio / Image のカテゴリを選びます。
 5. 変換元ファイルを選択します。
 6. 変換先形式を選択します。この時点では変換は始まりません。
 7. `変換する` を押して変換を開始します。
@@ -84,17 +85,17 @@ npm run release:portable
 作成後の `dist/` には、単体EXE、専用フォルダ入りZIP、それぞれのSHA-256チェックサムだけが出力されます。
 
 ```text
-dist/ConvertBox-Portable-1.0.0.exe
-dist/ConvertBox-Portable-1.0.0.exe.sha256
-dist/ConvertBox-Portable-1.0.0.zip
-dist/ConvertBox-Portable-1.0.0.zip.sha256
+dist/ConvertBox-Portable-1.1.0.exe
+dist/ConvertBox-Portable-1.1.0.exe.sha256
+dist/ConvertBox-Portable-1.1.0.zip
+dist/ConvertBox-Portable-1.1.0.zip.sha256
 ```
 
 ZIPを展開すると、次の構成になります。
 
 ```text
-ConvertBox-Portable-1.0.0/
-├─ ConvertBox-Portable-1.0.0.exe
+ConvertBox-Portable-1.1.0/
+├─ ConvertBox-Portable-1.1.0.exe
 └─ README.txt
 ```
 
@@ -165,21 +166,22 @@ ConvertBox/
 ```powershell
 npm run check
 npm run check:video
+npm run check:video-to-audio
 npm run check:audio
 npm run check:image
 ```
 
 ## GitHub公開前チェック
 
-1. `package.json` と画面のバージョンが `1.0.0` であることを確認する。
+1. `package.json` と画面のバージョンが `1.1.0` であることを確認する。
 2. 上記の確認用コマンドをすべて実行する。
 3. `npm run release:portable` でEXE、ZIP、両方のチェックサムを作成する。
 4. ZIP内のREADMEとフォルダ構成を確認する。
-5. EXEを起動し、Video / Audio / Image の選択、変換、保存、終了を確認する。
+5. EXEを起動し、Video / 動画 → 音声 / Audio / Image の選択、変換、保存、終了を確認する。
 6. EXE終了後に `ConvertBox`、`ffmpeg`、`ffprobe` のプロセスが残っていないことを確認する。
 7. FFmpegの対応ソースとライセンス文書をReleaseから取得できる状態にする。
 8. ConvertBox本体をオープンソースとして公開する場合は、用途に合うライセンスを追加する。
-9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.0.0` にする。
+9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.1.0` にする。
 
 ## 今後の候補
 

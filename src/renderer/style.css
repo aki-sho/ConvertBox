@@ -81,7 +81,7 @@ h1 { margin: 0; font-size: 34px; letter-spacing: -0.03em; }
   font-weight: 800;
 }
 
-.category-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 19px; }
+.category-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 19px; }
 .category-button {
   padding: 13px;
   border: 1px solid #d6deec;
@@ -189,4 +189,5 @@ footer { margin-top: 18px; color: #7c879b; font-size: 11px; text-align: center; 
   .app-shell { width: calc(100% - 30px); padding-top: 25px; }
   .converter-card { padding: 23px; }
   .analysis-grid { grid-template-columns: repeat(2, 1fr); }
+  .category-tabs { grid-template-columns: repeat(2, 1fr); }
 }
