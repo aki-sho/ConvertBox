@@ -4,9 +4,9 @@ ConvertBox は、Windows向けのインストール不要・ポータブルEXE�
 
 動画・音声・画像ファイルを別形式へ変換できます。変換処理はアプリ内に同梱したエンジンで実行し、PC本体へFFmpegなどをグローバルインストールすることを前提にしません。
 
-## Version 1.1.0
+## Version 1.1.1
 
-`1.1.0` は、動画から音声だけを取り出す専用モードを追加した機能アップデートです。
+`1.1.1` は、新しいブランドアイコンをアプリ画面、ウィンドウ、ポータブルEXEへ統一して反映したアップデートです。動画から音声だけを取り出す専用モードも利用できます。
 
 - Video: MP4 / MOV / WebM / AVI
 - 動画 → 音声: MP4 / MOV / WebM / AVI から MP3 / WAV / M4A / AAC
@@ -24,11 +24,11 @@ ImageのSVG出力は、変換元画像をSVG内へ埋め込んで表示を保つ
 
 ## 使い方
 
-GitHubのReleasesページから、通常は `ConvertBox-Portable-1.1.0.zip` をダウンロードします。
+GitHubのReleasesページから、通常は `ConvertBox-Portable-1.1.1.zip` をダウンロードします。
 
 1. ZIPを展開します。
-2. 作成された `ConvertBox-Portable-1.1.0` フォルダを、書き込み可能な場所へ置きます。
-3. フォルダ内の `ConvertBox-Portable-1.1.0.exe` をダブルクリックします。
+2. 作成された `ConvertBox-Portable-1.1.1` フォルダを、書き込み可能な場所へ置きます。
+3. フォルダ内の `ConvertBox-Portable-1.1.1.exe` をダブルクリックします。
 4. Video / 動画 → 音声 / Audio / Image のカテゴリを選びます。
 5. 変換元ファイルを選択します。
 6. 変換先形式を選択します。この時点では変換は始まりません。
@@ -85,17 +85,17 @@ npm run release:portable
 作成後の `dist/` には、単体EXE、専用フォルダ入りZIP、それぞれのSHA-256チェックサムだけが出力されます。
 
 ```text
-dist/ConvertBox-Portable-1.1.0.exe
-dist/ConvertBox-Portable-1.1.0.exe.sha256
-dist/ConvertBox-Portable-1.1.0.zip
-dist/ConvertBox-Portable-1.1.0.zip.sha256
+dist/ConvertBox-Portable-1.1.1.exe
+dist/ConvertBox-Portable-1.1.1.exe.sha256
+dist/ConvertBox-Portable-1.1.1.zip
+dist/ConvertBox-Portable-1.1.1.zip.sha256
 ```
 
 ZIPを展開すると、次の構成になります。
 
 ```text
-ConvertBox-Portable-1.1.0/
-├─ ConvertBox-Portable-1.1.0.exe
+ConvertBox-Portable-1.1.1/
+├─ ConvertBox-Portable-1.1.1.exe
 └─ README.txt
 ```
 
@@ -128,7 +128,7 @@ ConvertBox/
 ├─ CHANGELOG.md
 ├─ THIRD_PARTY_NOTICES.md
 ├─ build/
-│  ├─ icon.svg
+│  ├─ icon-source.png
 │  ├─ icon.png
 │  └─ icon.ico
 ├─ src/
@@ -139,7 +139,8 @@ ConvertBox/
 │  ├─ renderer/
 │  │  ├─ index.html
 │  │  ├─ app.js
-│  │  └─ style.css
+│  │  ├─ style.css
+│  │  └─ icon.png
 │  ├─ shared/
 │  │  └─ formats.js
 │  └─ converter/
@@ -173,7 +174,7 @@ npm run check:image
 
 ## GitHub公開前チェック
 
-1. `package.json` と画面のバージョンが `1.1.0` であることを確認する。
+1. `package.json` と画面のバージョンが `1.1.1` であることを確認する。
 2. 上記の確認用コマンドをすべて実行する。
 3. `npm run release:portable` でEXE、ZIP、両方のチェックサムを作成する。
 4. ZIP内のREADMEとフォルダ構成を確認する。
@@ -181,7 +182,7 @@ npm run check:image
 6. EXE終了後に `ConvertBox`、`ffmpeg`、`ffprobe` のプロセスが残っていないことを確認する。
 7. FFmpegの対応ソースとライセンス文書をReleaseから取得できる状態にする。
 8. ConvertBox本体をオープンソースとして公開する場合は、用途に合うライセンスを追加する。
-9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.1.0` にする。
+9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.1.1` にする。
 
 ## 今後の候補
 

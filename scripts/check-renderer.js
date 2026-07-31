@@ -71,12 +71,15 @@ async function main() {
     return {
       apiReady: Boolean(window.convertBox),
       version: document.querySelector('#app-version').textContent,
+      iconReady: document.querySelector('.logo-mark').complete
+        && document.querySelector('.logo-mark').naturalWidth === 256,
       options: [...document.querySelectorAll('#target-format option')].map((option) => option.value)
     };
   })()`, true);
 
   if (!initial.apiReady) throw new Error("renderer APIが読み込まれていません");
-  if (initial.version !== "v1.1.0") {
+  if (!initial.iconReady) throw new Error("新しいアプリアイコンが画面へ読み込まれていません");
+  if (initial.version !== "v1.1.1") {
     throw new Error(`画面のバージョン表示が正しくありません: ${initial.version}`);
   }
   if (initial.options.join(",") !== settings.options.join(",")) {

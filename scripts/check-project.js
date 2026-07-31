@@ -11,9 +11,13 @@ const requiredFiles = [
   "src/renderer/index.html",
   "src/renderer/app.js",
   "src/renderer/style.css",
+  "src/renderer/icon.png",
   "src/shared/formats.js",
   "src/converter/converterService.js",
   "src/converter/imageConverterService.js",
+  "build/icon-source.png",
+  "build/icon.png",
+  "build/icon.ico",
   "portable/bin/README.md",
   "scripts/prepare-portable-release.js",
   "scripts/create-portable-release.js",
@@ -26,7 +30,7 @@ for (const file of requiredFiles) {
   }
 }
 
-if (packageJson.version !== "1.1.0") {
+if (packageJson.version !== "1.1.1") {
   throw new Error(`本番バージョンが正しくありません: ${packageJson.version}`);
 }
 
@@ -67,6 +71,7 @@ for (const requiredText of [
 
 const preloadSource = fs.readFileSync(path.join(__dirname, "..", "src/main/preload.js"), "utf8");
 const portablePathsSource = fs.readFileSync(path.join(__dirname, "..", "src/main/portablePaths.js"), "utf8");
+const iconScriptSource = fs.readFileSync(path.join(__dirname, "..", "scripts/create-app-icon.js"), "utf8");
 
 if (!preloadSource.includes('exposeInMainWorld("convertBox"')) {
   throw new Error("ConvertBoxのrenderer API名が正しくありません");
@@ -74,6 +79,10 @@ if (!preloadSource.includes('exposeInMainWorld("convertBox"')) {
 
 if (!portablePathsSource.includes('"ConvertBox-PortableData"')) {
   throw new Error("ConvertBoxのポータブルデータフォルダ名が正しくありません");
+}
+
+if (!iconScriptSource.includes('"icon-source.png"') || !iconScriptSource.includes("rendererPngPath")) {
+  throw new Error("正式アイコンの生成設定が正しくありません");
 }
 
 if (FORMATS.video.length !== 4 || FORMATS.audio.length !== 4 || FORMATS.image.length !== 6) {
