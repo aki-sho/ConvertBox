@@ -32,16 +32,11 @@ button, select { font: inherit; }
 }
 
 .logo-mark {
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
+  width: 68px;
+  height: 68px;
   border-radius: 18px;
-  color: white;
-  background: linear-gradient(135deg, #3157d5, #6e8cf1);
   box-shadow: 0 12px 28px rgba(49, 87, 213, 0.25);
-  font-weight: 800;
-  letter-spacing: -1px;
+  object-fit: cover;
 }
 
 .eyebrow {

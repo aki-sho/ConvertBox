@@ -68,6 +68,7 @@ function createWindow() {
     minWidth: 760,
     minHeight: 620,
     title: "ConvertBox",
+    icon: path.join(__dirname, "../renderer/icon.png"),
     backgroundColor: "#f4f7fb",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
