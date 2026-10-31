@@ -1,5 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
-const { CONVERSION_FORMATS } = require("../shared/formats");
+// Sandboxed preloads cannot require local CommonJS files. Main supplies the
+// shared format definition as a single process argument when creating a window.
+const formatArgument = process.argv.find((argument) => argument.startsWith("--convertbox-formats="));
+if (!formatArgument) throw new Error("変換形式の初期設定が見つかりません");
+const CONVERSION_FORMATS = JSON.parse(formatArgument.slice("--convertbox-formats=".length));
 
 contextBridge.exposeInMainWorld("convertBox", {
   formats: CONVERSION_FORMATS,

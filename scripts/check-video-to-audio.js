@@ -39,7 +39,7 @@ async function main() {
     throw new Error("テスト動画の音声トラックを検出できませんでした");
   }
 
-  for (const format of ["MP3", "WAV", "M4A", "AAC"]) {
+  for (const format of ["MP3", "WAV", "M4A", "AAC", "WebM"]) {
     const outputPath = path.join(testPath, `output.${format.toLowerCase()}`);
     const result = await extractAudio({
       filePath: inputPath,
@@ -55,7 +55,7 @@ async function main() {
     await assertAudioOnly(outputPath);
   }
 
-  console.log("Video-to-audio check passed: MP3, WAV, M4A, AAC");
+  console.log("Video-to-audio check passed: MP3, WAV, M4A, AAC, WebM");
 }
 
 main()

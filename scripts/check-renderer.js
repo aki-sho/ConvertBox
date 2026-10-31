@@ -4,11 +4,12 @@ const port = process.argv[2] || "9222";
 const category = process.argv[3] || "video";
 const categorySettings = {
   video: { label: "Video", options: ["MP4", "MOV", "WebM", "AVI"], target: "WebM", analysisId: "video-analysis" },
-  videoToAudio: { label: "動画 → 音声", options: ["MP3", "WAV", "M4A", "AAC"], target: "MP3", analysisId: "video-analysis" },
-  audio: { label: "Audio", options: ["MP3", "WAV", "M4A", "AAC"], target: "MP3", analysisId: "audio-analysis" },
+  videoToAudio: { label: "動画 → 音声", options: ["MP3", "WAV", "M4A", "AAC", "WebM"], target: "MP3", analysisId: "video-analysis" },
+  audio: { label: "Audio", options: ["MP3", "WAV", "M4A", "AAC", "WebM"], target: "MP3", analysisId: "audio-analysis" },
   image: { label: "Image", options: ["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"], target: "WebP", analysisId: "image-analysis" }
 };
 const settings = categorySettings[category];
+if (settings && process.argv[4]) settings.target = process.argv[4];
 
 if (!settings) throw new Error(`未対応のテストカテゴリです: ${category}`);
 
@@ -79,7 +80,7 @@ async function main() {
 
   if (!initial.apiReady) throw new Error("renderer APIが読み込まれていません");
   if (!initial.iconReady) throw new Error("新しいアプリアイコンが画面へ読み込まれていません");
-  if (initial.version !== "v1.1.1") {
+  if (initial.version !== `v${require("../package.json").version}`) {
     throw new Error(`画面のバージョン表示が正しくありません: ${initial.version}`);
   }
   if (initial.options.join(",") !== settings.options.join(",")) {
@@ -132,12 +133,22 @@ async function main() {
 
   if (!converted.ok) throw new Error(`画面からの変換に失敗しました: ${converted.status}`);
 
-  const downloadReady = await evaluate(`({
-    visible: !document.querySelector('#download-button').hidden,
-    progress: document.querySelector('#conversion-progress').value
-  })`);
+  // Progress notifications and the invoke result use separate IPC deliveries.
+  // Wait for both rather than assuming the last progress event arrives first.
+  const downloadReady = await evaluate(`(async () => {
+    let state;
+    for (let i = 0; i < 20; i += 1) {
+      state = {
+        visible: !document.querySelector('#download-button').hidden,
+        progress: document.querySelector('#conversion-progress').value
+      };
+      if (state.visible && Number(state.progress) === 100) return state;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return state;
+  })()`, true);
   if (!downloadReady.visible || Number(downloadReady.progress) !== 100) {
-    throw new Error("変換完了後にダウンロードボタンが表示されませんでした");
+    throw new Error(`変換完了後の画面状態が正しくありません: ${JSON.stringify(downloadReady)}`);
   }
 
   await evaluate(`document.querySelector('#download-button').click();`);

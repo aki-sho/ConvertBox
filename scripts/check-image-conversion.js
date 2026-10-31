@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const assert = require("node:assert/strict");
 const sharp = require("sharp");
 const { analyzeImage, convertImage } = require("../src/converter/imageConverterService");
 
@@ -40,7 +41,41 @@ async function main() {
     }
   }
 
-  console.log("Image conversion check passed: JPG, PNG, JPEG, GIF, WebP, SVG");
+  for (const extension of ["HEIC", "heif"]) {
+    const heicPath = path.join(testPath, `写真 テスト.${extension}`);
+    fs.copyFileSync(path.join(__dirname, "fixtures", "rainbow.heic"), heicPath);
+    const heicMetadata = await analyzeImage({ filePath: heicPath });
+    assert.deepEqual(heicMetadata, {
+      width: 451, height: 461, imageFormat: "HEIC", channels: 3,
+      pages: 1, hasAlpha: false, sizeBytes: fs.statSync(heicPath).size
+    });
+
+    for (const format of ["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"]) {
+      const outputPath = path.join(testPath, `${extension}-output.${format.toLowerCase()}`);
+      const progress = [];
+      const result = await convertImage({
+        filePath: heicPath, outputPath, targetFormat: format,
+        onProgress: (percent) => progress.push(percent)
+      });
+      assert.equal(result.ok, true, `${extension} → ${format}: ${result.detail || result.message}`);
+      assert.deepEqual(progress, [10, 100]);
+      // Decode the output pixels, rather than only trusting the image header.
+      const { data, info } = await sharp(outputPath).raw().toBuffer({ resolveWithObject: true });
+      assert.equal(info.width, 451);
+      assert.equal(info.height, 461);
+      assert.ok(data.some((value) => value > 0), `${format}の出力画像が空です`);
+    }
+  }
+
+  const invalidHeic = path.join(testPath, "broken.heic");
+  fs.writeFileSync(invalidHeic, Buffer.from("00000000ftypheic"));
+  await assert.rejects(analyzeImage({ filePath: invalidHeic }), /HEIC \/ HEIF/);
+  const invalidOutput = path.join(testPath, "broken.png");
+  const failed = await convertImage({ filePath: invalidHeic, outputPath: invalidOutput, targetFormat: "PNG" });
+  assert.equal(failed.ok, false);
+  assert.equal(fs.existsSync(invalidOutput), false);
+
+  console.log("Image conversion check passed: existing formats, HEIC/HEIF to all 6 formats, invalid HEIC");
 }
 
 main()

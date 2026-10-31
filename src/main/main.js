@@ -1,8 +1,12 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { pathToFileURL } = require("node:url");
 const { app, BrowserWindow, dialog, ipcMain } = require("electron");
-const { inferCategory, getExtension } = require("../shared/formats");
+const { FORMATS, CONVERSION_FORMATS, inferCategory, getExtension } = require("../shared/formats");
+const { validateConversionRequest, isTrustedSender, assertTemporaryPath, assertWorkingDirectory } = require("./security");
+const { LIMITS, assertInputFile } = require("../converter/resourceLimits");
+const { installShutdown } = require("./shutdown");
 const {
   analyzeVideo,
   analyzeAudio,
@@ -11,7 +15,8 @@ const {
   extractAudio,
   terminateActiveProcesses
 } = require("../converter/converterService");
-const { analyzeImage, convertImage } = require("../converter/imageConverterService");
+const { analyzeImage, convertImage, terminateActiveImageProcesses } = require("../converter/imageConverterService");
+const { terminateActiveHeicWorkers } = require("../converter/heicDecoder");
 const {
   getBundledRuntimePath,
   getPortableDataPaths,
@@ -19,6 +24,7 @@ const {
 } = require("./portablePaths");
 
 const portablePaths = getPortableDataPaths();
+assertWorkingDirectory(portablePaths.root, portablePaths.working);
 ensurePortableDataPaths(portablePaths);
 fs.writeFileSync(
   path.join(portablePaths.logs, "startup.json"),
@@ -45,20 +51,61 @@ const ffmpegPath = path.join(portableBinPath, "ffmpeg.exe");
 const ffprobePath = path.join(portableBinPath, "ffprobe.exe");
 const workingPath = portablePaths.working;
 const conversionResults = new Map();
+const rendererPath = path.join(__dirname, "../renderer/index.html");
+const rendererUrl = pathToFileURL(rendererPath).href;
+let mainWindow;
+let selectedInput = null;
+let operationRunning = false;
+const shutdown = hasSingleInstanceLock ? installShutdown({
+  app,
+  stopProcesses: () => Promise.all([terminateActiveProcesses(), terminateActiveHeicWorkers(), terminateActiveImageProcesses()]),
+  cleanup: cleanupRuntimeState,
+  reportError: (error) => fs.appendFileSync(
+    path.join(portablePaths.logs, "shutdown.log"),
+    `${new Date().toISOString()} ${error.stack || error}\n`, "utf8"
+  )
+}) : { isQuitting: () => true };
+
+function handle(channel, handler) {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedSender(event, mainWindow, rendererUrl)) throw new Error("許可されていない画面からの要求です");
+    if (shutdown.isQuitting()) throw new Error("アプリを終了しています");
+    return handler(event, ...args);
+  });
+}
+
+function assertSelectedInput(filePath, category) {
+  if (!selectedInput || typeof filePath !== "string" || filePath !== selectedInput.filePath
+    || selectedInput.category !== category) throw new Error("先に対応するファイルを選択してください");
+  assertInputFile(filePath, category === "image" ? LIMITS.imageBytes : LIMITS.mediaBytes);
+}
+
+async function runExclusive(operation) {
+  if (operationRunning) return { ok: false, message: "別の解析・変換処理が実行中です" };
+  operationRunning = true;
+  try { return await operation(); }
+  catch (error) { return { ok: false, message: error.message }; }
+  finally { operationRunning = false; }
+}
+
+function removeTemporaryFile(filePath) {
+  assertWorkingDirectory(portablePaths.root, workingPath);
+  fs.rmSync(assertTemporaryPath(workingPath, filePath), { force: true });
+}
 
 function removeConversionResult(conversionId) {
   const result = conversionResults.get(conversionId);
   if (!result) return;
   conversionResults.delete(conversionId);
-  fs.rmSync(result.temporaryPath, { force: true });
+  removeTemporaryFile(result.temporaryPath);
 }
 
-function cleanupRuntimeState() {
-  terminateActiveProcesses();
-  for (const conversionId of conversionResults.keys()) {
-    removeConversionResult(conversionId);
-  }
-  fs.rmSync(workingPath, { recursive: true, force: true });
+async function cleanupRuntimeState() {
+  conversionResults.clear();
+  assertWorkingDirectory(portablePaths.root, workingPath);
+  await fs.promises.rm(workingPath, {
+    recursive: true, force: true, maxRetries: 3, retryDelay: 100
+  });
 }
 
 function createWindow() {
@@ -74,20 +121,28 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true,
+      additionalArguments: [`--convertbox-formats=${JSON.stringify(CONVERSION_FORMATS)}`]
     }
   });
-
+  mainWindow = window;
+  window.webContents.on("will-navigate", (event) => event.preventDefault());
+  window.webContents.on("will-redirect", (event) => event.preventDefault());
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  window.webContents.session.setPermissionCheckHandler(() => false);
   window.setMenuBarVisibility(false);
-  window.loadFile(path.join(__dirname, "../renderer/index.html"));
+  window.loadFile(rendererPath);
 }
 
-ipcMain.handle("file:select", async (_event, category) => {
+handle("file:select", async (_event, category) => {
+  if (operationRunning) return null;
+  if (typeof category !== "string" || !Object.hasOwn(CONVERSION_FORMATS, category)) return null;
   const categoryFilters = {
     video: { name: "動画ファイル", extensions: ["mp4", "mov", "webm", "avi"] },
     videoToAudio: { name: "音声を取り出す動画ファイル", extensions: ["mp4", "mov", "webm", "avi"] },
-    audio: { name: "音声ファイル", extensions: ["mp3", "wav", "m4a", "aac"] },
-    image: { name: "画像ファイル", extensions: ["jpg", "png", "jpeg", "gif", "webp", "svg"] }
+    audio: { name: "音声ファイル", extensions: ["mp3", "wav", "m4a", "aac", "webm"] },
+    image: { name: "画像ファイル", extensions: FORMATS.image.map((format) => format.toLowerCase()) }
   };
   const testInputPath = process.env.CONVERTBOX_TEST_INPUT;
   const result = testInputPath
@@ -102,74 +157,64 @@ ipcMain.handle("file:select", async (_event, category) => {
     return null;
   }
 
-  const filePath = result.filePaths[0];
+  const filePath = path.resolve(result.filePaths[0]);
   const extension = getExtension(filePath);
-
-  return {
+  const file = {
     fileName: path.basename(filePath),
     filePath,
     extension: extension || "不明",
-    category: inferCategory(extension)
+    category: inferCategory(extension, category === "videoToAudio" ? "video" : category)
   };
+  selectedInput = file;
+  return file;
 });
 
-ipcMain.handle("video:analyze", async (_event, filePath) => {
+handle("video:analyze", (_event, filePath) => runExclusive(async () => {
   try {
+    assertSelectedInput(filePath, "video");
     const metadata = await analyzeVideo({ filePath, ffprobePath });
     return { ok: true, metadata };
   } catch (error) {
     return { ok: false, message: error.message };
   }
-});
+}));
 
-ipcMain.handle("audio:analyze", async (_event, filePath) => {
+handle("audio:analyze", (_event, filePath) => runExclusive(async () => {
   try {
+    assertSelectedInput(filePath, "audio");
     const metadata = await analyzeAudio({ filePath, ffprobePath });
     return { ok: true, metadata };
   } catch (error) {
     return { ok: false, message: error.message };
   }
-});
+}));
 
-ipcMain.handle("image:analyze", async (_event, filePath) => {
+handle("image:analyze", (_event, filePath) => runExclusive(async () => {
   try {
+    assertSelectedInput(filePath, "image");
     const metadata = await analyzeImage({ filePath });
     return { ok: true, metadata };
   } catch (error) {
     return { ok: false, message: error.message };
   }
-});
+}));
 
-ipcMain.handle("conversion:request", async (event, conversionRequest) => {
-  const supportedCategories = ["video", "audio", "image", "videoToAudio"];
-  if (!conversionRequest || !supportedCategories.includes(conversionRequest.category)) {
-    return { ok: false, message: "対応するカテゴリを選択してください" };
+handle("conversion:request", (event, conversionRequest) => runExclusive(async () => {
+  try {
+    validateConversionRequest(conversionRequest);
+    assertSelectedInput(conversionRequest.filePath, conversionRequest.category === "videoToAudio" ? "video" : conversionRequest.category);
+    assertWorkingDirectory(portablePaths.root, workingPath);
+  } catch (error) {
+    return { ok: false, message: error.message };
   }
-
-  if (!conversionRequest.filePath || !conversionRequest.targetFormat) {
-    return { ok: false, message: "変換元ファイルと変換先形式を指定してください" };
-  }
-
-  const expectedSourceCategory = conversionRequest.category === "videoToAudio"
-    ? "video"
-    : conversionRequest.category;
-
-  if (conversionRequest.sourceCategory !== expectedSourceCategory) {
-    const expected = {
-      video: "MP4 / MOV / WebM / AVI の動画ファイル",
-      audio: "MP3 / WAV / M4A / AAC の音声ファイル",
-      image: "JPG / PNG / JPEG / GIF / WebP / SVG の画像ファイル",
-      videoToAudio: "音声トラックを含む MP4 / MOV / WebM / AVI の動画ファイル"
-    }[conversionRequest.category];
-    return { ok: false, message: `${expected}を選択してください` };
-  }
-
+  if (conversionResults.size) return { ok: false, message: "変換済みファイルを保存または破棄してから、次の変換を開始してください" };
+  if (shutdown.isQuitting()) return { ok: false, message: "アプリを終了しています" };
   const extension = conversionRequest.targetFormat.toLowerCase();
   const inputName = path.basename(conversionRequest.filePath, path.extname(conversionRequest.filePath));
   const conversionId = crypto.randomUUID();
   const suggestedFileName = `${inputName}_converted.${extension}`;
   fs.mkdirSync(workingPath, { recursive: true });
-  const temporaryPath = path.join(workingPath, `${conversionId}.${extension}`);
+  const temporaryPath = assertTemporaryPath(workingPath, path.join(workingPath, `${conversionId}.${extension}`));
 
   const convert = {
     video: convertVideo,
@@ -178,14 +223,21 @@ ipcMain.handle("conversion:request", async (event, conversionRequest) => {
     videoToAudio: extractAudio
   }[conversionRequest.category];
   const result = await convert({
-    ...conversionRequest,
+    filePath: selectedInput.filePath,
+    targetFormat: conversionRequest.targetFormat,
+    durationSeconds: Number.isFinite(conversionRequest.durationSeconds) ? Math.max(0, conversionRequest.durationSeconds) : 0,
     outputPath: temporaryPath,
     ffmpegPath,
-    onProgress: (percent) => event.sender.send("conversion:progress", percent)
+    onProgress: (percent) => {
+      if (!shutdown.isQuitting() && !event.sender.isDestroyed()) {
+        event.sender.send("conversion:progress", percent);
+      }
+    }
   });
 
+  if (shutdown.isQuitting()) return { ok: false, message: "アプリを終了しています" };
   if (!result.ok) {
-    fs.rmSync(temporaryPath, { force: true });
+    removeTemporaryFile(temporaryPath);
     return result;
   }
 
@@ -202,9 +254,9 @@ ipcMain.handle("conversion:request", async (event, conversionRequest) => {
     suggestedFileName,
     message: `${conversionRequest.targetFormat} への変換が完了しました。ダウンロードしてください`
   };
-});
+}));
 
-ipcMain.handle("conversion:download", async (_event, conversionId) => {
+handle("conversion:download", async (_event, conversionId) => {
   const converted = conversionResults.get(conversionId);
   if (!converted || !fs.existsSync(converted.temporaryPath)) {
     return { ok: false, message: "変換済みファイルが見つかりません。もう一度変換してください" };
@@ -225,6 +277,8 @@ ipcMain.handle("conversion:download", async (_event, conversionId) => {
   }
 
   try {
+    assertWorkingDirectory(portablePaths.root, workingPath);
+    assertTemporaryPath(workingPath, converted.temporaryPath);
     await fs.promises.copyFile(converted.temporaryPath, saveResult.filePath);
     removeConversionResult(conversionId);
     return {
@@ -237,12 +291,12 @@ ipcMain.handle("conversion:download", async (_event, conversionId) => {
   }
 });
 
-ipcMain.handle("conversion:discard", (_event, conversionId) => {
+handle("conversion:discard", (_event, conversionId) => {
   removeConversionResult(conversionId);
   return { ok: true };
 });
 
-ipcMain.handle("app:get-version", () => app.getVersion());
+handle("app:get-version", () => app.getVersion());
 
 if (!hasSingleInstanceLock) {
   app.quit();
@@ -256,25 +310,22 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    assertWorkingDirectory(portablePaths.root, workingPath);
     fs.rmSync(workingPath, { recursive: true, force: true });
     fs.mkdirSync(workingPath, { recursive: true });
     createWindow();
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
+      if (!shutdown.isQuitting() && BrowserWindow.getAllWindows().length === 0) {
         createWindow();
       }
     });
-  });
-
-  app.on("before-quit", () => {
-    cleanupRuntimeState();
-  });
-
-  app.on("window-all-closed", () => {
-    cleanupRuntimeState();
-    if (process.platform !== "darwin") {
+  }).catch((error) => {
+    try {
+      fs.appendFileSync(path.join(portablePaths.logs, "shutdown.log"), `${error.stack || error}\n`);
+    } finally {
       app.quit();
     }
   });
+
 }

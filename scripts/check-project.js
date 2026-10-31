@@ -15,6 +15,14 @@ const requiredFiles = [
   "src/shared/formats.js",
   "src/converter/converterService.js",
   "src/converter/imageConverterService.js",
+  "src/converter/heicDecoder.js",
+  "src/converter/imageWorker.js",
+  "src/converter/processRunner.js",
+  "src/converter/resourceLimits.js",
+  "src/main/security.js",
+  "portable/bin/ffmpeg-runtime.json",
+  "portable/bin/FFMPEG-LICENSE.txt",
+  "scripts/fixtures/rainbow.heic",
   "build/icon-source.png",
   "build/icon.png",
   "build/icon.ico",
@@ -30,7 +38,7 @@ for (const file of requiredFiles) {
   }
 }
 
-if (packageJson.version !== "1.1.1") {
+if (packageJson.version !== "1.3.2") {
   throw new Error(`本番バージョンが正しくありません: ${packageJson.version}`);
 }
 
@@ -85,7 +93,7 @@ if (!iconScriptSource.includes('"icon-source.png"') || !iconScriptSource.include
   throw new Error("正式アイコンの生成設定が正しくありません");
 }
 
-if (FORMATS.video.length !== 4 || FORMATS.audio.length !== 4 || FORMATS.image.length !== 6) {
+if (FORMATS.video.length !== 4 || FORMATS.audio.length !== 5 || FORMATS.image.length !== 8) {
   throw new Error("対応形式の定義が正しくありません");
 }
 
@@ -97,12 +105,26 @@ if (VIDEO_FORMATS.join(",") !== "MP4,MOV,WebM,AVI") {
   throw new Error("Video変換形式の定義が正しくありません");
 }
 
-if (AUDIO_FORMATS.join(",") !== "MP3,WAV,M4A,AAC") {
+if (AUDIO_FORMATS.join(",") !== "MP3,WAV,M4A,AAC,WebM") {
   throw new Error("Audio変換形式の定義が正しくありません");
 }
 
 if (IMAGE_FORMATS.join(",") !== "JPG,PNG,JPEG,GIF,WebP,SVG") {
   throw new Error("Image変換形式の定義が正しくありません");
+}
+
+if (CONVERSION_FORMATS.image.join(",") !== IMAGE_FORMATS.join(",")) {
+  throw new Error("Imageの入力専用形式が変換先に含まれています");
+}
+
+for (const unpackedPath of [
+  "src/converter/heicDecoder.js",
+  "node_modules/heic-decode/**/*",
+  "node_modules/libheif-js/**/*"
+]) {
+  if (!packageJson.build.asarUnpack.includes(unpackedPath)) {
+    throw new Error(`HEICデコーダーの同梱設定が不足しています: ${unpackedPath}`);
+  }
 }
 
 for (const binary of ["portable/bin/ffmpeg.exe", "portable/bin/ffprobe.exe"]) {
@@ -113,6 +135,21 @@ for (const binary of ["portable/bin/ffmpeg.exe", "portable/bin/ffprobe.exe"]) {
 
 if (getExtension("sample.photo.jpeg") !== "JPEG" || inferCategory("png") !== "image") {
   throw new Error("拡張子またはカテゴリの推定が正しくありません");
+}
+
+for (const [extension, preferred, expected] of [
+  ["webm", "audio", "audio"],
+  ["WEBM", "video", "video"],
+  ["WebM", undefined, "video"],
+  ["mp3", "video", "audio"],
+  ["png", "audio", "image"],
+  ["heic", undefined, "image"],
+  ["HEIC", "video", "image"],
+  ["heif", "image", "image"]
+]) {
+  if (inferCategory(extension, preferred) !== expected) {
+    throw new Error(`カテゴリ判定に失敗しました: ${extension} / ${preferred}`);
+  }
 }
 
 console.log("Project check passed.");

@@ -8,15 +8,24 @@ ConvertBox includes and uses third-party software.
 
 The bundled executables report the following build:
 
-- Version: `N-92722-gf22fcd4483`
-- Build date/toolchain: GCC 8.2.1, 2018-12-01
+- Version: `9.0.2-essentials_build-www.gyan.dev` (both FFmpeg and ffprobe)
+- Build toolchain: GCC 16.2.0, MSYS2
+- Provider: https://www.gyan.dev/ffmpeg/builds/
+- Archive: https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.7z
+- Archive SHA-256: `4705843ccaaf54257c16ad90f3e952ece33c17df964ecf7bfdbb0f49c7171077`
+- FFmpeg source commit: `946fcce07b`
+- Per-binary SHA-256 values: `portable/bin/ffmpeg-runtime.json`
+- License text: `portable/bin/FFMPEG-LICENSE.txt`
 - License mode: GPLv3 or later (`--enable-gpl` and `--enable-version3`)
 - FFmpeg project: https://ffmpeg.org/
 - License information: https://ffmpeg.org/legal.html
 
 The FFmpeg executables are separate programs started by ConvertBox. FFmpeg remains licensed by its respective copyright holders.
 
-Before distributing these binaries publicly, the distributor must preserve the applicable copyright and license notices and provide the exact corresponding source code and build information required by the GPL. The current repository does not contain that corresponding FFmpeg source bundle. Do not publish the bundled executables, portable EXE, or portable ZIP until that source bundle and its download location have been prepared.
+The exact upstream FFmpeg source commit identified by the binary provider, the bundled binary build configuration, runtime hashes, and license text are supplied in the source-and-build-info Release asset.
+
+- Source and build information: https://github.com/aki-sho/ConvertBox/releases/download/v1.3.2/FFmpeg-9.0.2-source-and-build-info.zip
+- Source manifest: third-party/ffmpeg-source.json
 
 ## Sharp
 
@@ -26,6 +35,20 @@ Image conversion uses the `sharp` npm package and its native image processing de
 - License: Apache-2.0
 
 The complete npm dependency versions and integrity hashes are recorded in `package-lock.json`. License files included with installed npm packages are packaged with the application where required.
+
+## HEIC decoding
+
+HEIC / HEIF input uses `heic-decode` (ISC) and `libheif-js` (LGPL-3.0), including
+its bundled WebAssembly decoder. These are packaged with the app and work
+offline without installing Windows codecs.
+
+- heic-decode: https://github.com/catdad-experiments/heic-decode
+- libheif-js and build scripts: https://github.com/catdad-experiments/libheif-js
+- libheif: https://github.com/strukturag/libheif
+
+Preserve the applicable license notices and corresponding source/build
+information when distributing the decoder. Installed dependency versions and
+integrity hashes are recorded in `package-lock.json`.
 
 ## Electron
 

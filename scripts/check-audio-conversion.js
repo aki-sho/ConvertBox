@@ -25,7 +25,7 @@ async function main() {
     throw new Error("テスト音声の解析結果が正しくありません");
   }
 
-  for (const format of ["MP3", "WAV", "M4A", "AAC"]) {
+  for (const format of ["MP3", "WAV", "M4A", "AAC", "WebM"]) {
     const outputPath = path.join(testPath, `output.${format.toLowerCase()}`);
     const result = await convertAudio({
       filePath: inputPath,
@@ -45,7 +45,24 @@ async function main() {
     }
   }
 
-  console.log("Audio conversion check passed: MP3, WAV, M4A, AAC");
+  const webmPath = path.join(testPath, "output.webm");
+  const { stdout } = await execFileAsync(ffprobePath, [
+    "-v", "error", "-show_streams", "-of", "json", webmPath
+  ]);
+  const streams = JSON.parse(stdout).streams;
+  if (streams.length !== 1 || streams[0].codec_type !== "audio" || streams[0].codec_name !== "opus") {
+    throw new Error("WebM出力が音声のみのOpusではありません");
+  }
+  for (const format of ["MP3", "WAV", "M4A", "AAC", "WebM"]) {
+    const outputPath = path.join(testPath, `from-webm.${format.toLowerCase()}`);
+    const result = await convertAudio({
+      filePath: webmPath, outputPath, targetFormat: format, ffmpegPath
+    });
+    if (!result.ok) throw new Error(`WebMから${format}への変換失敗: ${result.detail || result.message}`);
+    const metadata = await analyzeAudio({ filePath: outputPath, ffprobePath });
+    if (metadata.durationSeconds <= 0) throw new Error(`WebMから${format}への出力が不正です`);
+  }
+  console.log("Audio conversion check passed: MP3, WAV, M4A, AAC, WebM (including WebM input)");
 }
 
 main()

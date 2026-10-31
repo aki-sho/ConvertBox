@@ -1,78 +1,64 @@
-const fs = require("fs");
-const sharp = require("sharp");
+const path = require("node:path");
+const { fork } = require("node:child_process");
+const { IMAGE_FORMATS } = require("../shared/formats");
+const { LIMITS, assertInputFile } = require("./resourceLimits");
+const activeProcesses = new Set();
 
-const IMAGE_FORMATS = Object.freeze(["JPG", "PNG", "JPEG", "GIF", "WebP", "SVG"]);
-
-async function analyzeImage({ filePath }) {
-  if (!filePath || !fs.existsSync(filePath)) {
-    throw new Error("選択したファイルが見つかりません");
-  }
-
-  const metadata = await sharp(filePath, { animated: true }).metadata();
-  if (!metadata.width || !metadata.height) {
-    throw new Error("このファイルから画像情報を確認できませんでした");
-  }
-
-  return {
-    width: metadata.width,
-    height: metadata.pageHeight || metadata.height,
-    imageFormat: String(metadata.format || "不明").toUpperCase(),
-    channels: metadata.channels || 0,
-    pages: metadata.pages || 1,
-    hasAlpha: Boolean(metadata.hasAlpha),
-    sizeBytes: fs.statSync(filePath).size
-  };
+function runImageOperation(operation, request, onProgress) {
+  return new Promise((resolve, reject) => {
+    assertInputFile(request.filePath, LIMITS.imageBytes);
+    if (activeProcesses.size) throw new Error("別の画像を処理しています");
+    const workerPath = path.join(__dirname, "imageWorker.js").replace(/\.asar([\\/])/, ".asar.unpacked$1");
+    const child = fork(workerPath, [], {
+      windowsHide: true, stdio: ["ignore", "ignore", "pipe", "ipc"],
+      execArgv: ["--max-old-space-size=256"],
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }
+    });
+    activeProcesses.add(child);
+    let result;
+    let failure;
+    let stderr = "";
+    const timer = setTimeout(() => {
+      failure = new Error("画像の処理時間の上限（60秒）を超えたため停止しました");
+      child.kill("SIGKILL");
+    }, LIMITS.imageTimeoutMs);
+    child.stderr.on("data", (chunk) => { stderr = (stderr + chunk.toString()).slice(-12000); });
+    child.on("message", (message) => {
+      if (message.error) failure = new Error(message.error);
+      if (Object.hasOwn(message, "result")) result = message.result;
+      if (Number.isFinite(message.progress)) onProgress?.(message.progress);
+    });
+    child.once("error", (error) => { failure = error; });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      activeProcesses.delete(child);
+      if (failure) reject(failure);
+      else if (code !== 0 || result === undefined) reject(new Error(stderr || "画像処理が中断されました"));
+      else resolve(result);
+    });
+    child.send({ operation, request });
+  });
 }
 
+const analyzeImage = ({ filePath }) => runImageOperation("analyze", { filePath });
 async function convertImage({ filePath, outputPath, targetFormat, onProgress }) {
-  if (!filePath || !fs.existsSync(filePath)) {
-    return { ok: false, message: "選択したファイルが見つかりません" };
-  }
-
-  if (!IMAGE_FORMATS.includes(targetFormat)) {
-    return { ok: false, message: "選択した変換先形式にはまだ対応していません" };
-  }
-
-  if (!outputPath) {
-    return { ok: false, message: "変換後ファイルの準備先がありません" };
-  }
-
   try {
-    onProgress?.(10);
-
-    if (targetFormat === "SVG") {
-      const metadata = await sharp(filePath).metadata();
-      const pngBuffer = await sharp(filePath).png().toBuffer();
-      const width = metadata.width || 1;
-      const height = metadata.pageHeight || metadata.height || 1;
-      const svg = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
-        `  <image width="${width}" height="${height}" href="data:image/png;base64,${pngBuffer.toString("base64")}"/>`,
-        "</svg>"
-      ].join("\n");
-      await fs.promises.writeFile(outputPath, svg, "utf8");
-    } else {
-      let pipeline = sharp(filePath, { animated: targetFormat === "GIF" });
-
-      if (targetFormat === "JPG" || targetFormat === "JPEG") {
-        pipeline = pipeline.flatten({ background: "#ffffff" }).jpeg({ quality: 90 });
-      } else if (targetFormat === "PNG") {
-        pipeline = pipeline.png({ compressionLevel: 9 });
-      } else if (targetFormat === "GIF") {
-        pipeline = pipeline.gif({ effort: 5 });
-      } else if (targetFormat === "WebP") {
-        pipeline = pipeline.webp({ quality: 90 });
-      }
-
-      await pipeline.toFile(outputPath);
+    if (!IMAGE_FORMATS.includes(targetFormat)) throw new Error("選択した変換先形式にはまだ対応していません");
+    if (!outputPath || path.resolve(filePath).toLowerCase() === path.resolve(outputPath).toLowerCase()) {
+      throw new Error("元のファイルとは別の保存先を指定してください");
     }
-
-    onProgress?.(100);
-    return { ok: true, outputPath, message: `${targetFormat} への変換が完了しました` };
+    return await runImageOperation("convert", { filePath, outputPath, targetFormat }, onProgress);
   } catch (error) {
     return { ok: false, message: "画像の変換に失敗しました", detail: error.message };
   }
 }
 
-module.exports = { IMAGE_FORMATS, analyzeImage, convertImage };
+async function terminateActiveImageProcesses() {
+  await Promise.all([...activeProcesses].map((child) => new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) return resolve();
+    child.once("close", resolve);
+    child.kill("SIGKILL");
+  })));
+}
+
+module.exports = { IMAGE_FORMATS, analyzeImage, convertImage, terminateActiveImageProcesses };

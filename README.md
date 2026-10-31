@@ -1,17 +1,26 @@
 # ConvertBox
 
+> 最新バージョン: 1.3.2（2026-10-31）。ローカルの未公開変更を反映し、ソースと配布物を揃えた同期リリースです。
+
 ConvertBox は、Windows向けのインストール不要・ポータブルEXE版ファイル変換アプリです。
 
 動画・音声・画像ファイルを別形式へ変換できます。変換処理はアプリ内に同梱したエンジンで実行し、PC本体へFFmpegなどをグローバルインストールすることを前提にしません。
 
-## Version 1.1.1
+## Version 1.3.2
 
-`1.1.1` は、新しいブランドアイコンをアプリ画面、ウィンドウ、ポータブルEXEへ統一して反映したアップデートです。動画から音声だけを取り出す専用モードも利用できます。
+`1.3.1` は、ファイル削除・IPC・画面の隔離・異常ファイル対策を強化したセキュリティ更新です。FFmpeg / ffprobeは検証済みの9.0.2へ更新しています。
+
+HEIC / HEIF画像を読み込み、JPGやPNGなどへ変換できます。追加コーデックのインストールは不要で、オフラインで利用できます。
 
 - Video: MP4 / MOV / WebM / AVI
-- 動画 → 音声: MP4 / MOV / WebM / AVI から MP3 / WAV / M4A / AAC
-- Audio: MP3 / WAV / M4A / AAC
-- Image: JPG / PNG / JPEG / GIF / WebP / SVG
+- 動画 → 音声: MP4 / MOV / WebM / AVI から MP3 / WAV / M4A / AAC / WebM
+- Audio: MP3 / WAV / M4A / AAC / WebM
+- Image入力: JPG / PNG / JPEG / GIF / WebP / SVG / HEIC / HEIF
+- Image出力: JPG / PNG / JPEG / GIF / WebP / SVG
+
+HEIC / HEIFはImageカテゴリでファイルを選択して変換できます。複数の画像を含むHEIC / HEIFは先頭の1枚を変換します。
+
+音声のWebMファイルを変換する場合は、Audioカテゴリを選んでからファイルを開いてください。WebMへの音声出力はOpus（128 kbps / 48 kHz）で、映像を含みません。動画のWebMは従来どおりVideoまたは動画 → 音声で扱えます。
 
 ImageのSVG出力は、変換元画像をSVG内へ埋め込んで表示を保つ方式です。写真やラスター画像の輪郭を自動的にベクターデータへ変換する機能ではありません。
 
@@ -24,11 +33,11 @@ ImageのSVG出力は、変換元画像をSVG内へ埋め込んで表示を保つ
 
 ## 使い方
 
-GitHubのReleasesページから、通常は `ConvertBox-Portable-1.1.1.zip` をダウンロードします。
+GitHubのReleasesページから、通常は `ConvertBox-Portable-1.3.2.zip` をダウンロードします。
 
 1. ZIPを展開します。
-2. 作成された `ConvertBox-Portable-1.1.1` フォルダを、書き込み可能な場所へ置きます。
-3. フォルダ内の `ConvertBox-Portable-1.1.1.exe` をダブルクリックします。
+2. 作成された `ConvertBox-Portable-1.3.1` フォルダを、書き込み可能な場所へ置きます。
+3. フォルダ内の `ConvertBox-Portable-1.3.2.exe` をダブルクリックします。
 4. Video / 動画 → 音声 / Audio / Image のカテゴリを選びます。
 5. 変換元ファイルを選択します。
 6. 変換先形式を選択します。この時点では変換は始まりません。
@@ -62,7 +71,9 @@ EXEと同じ場所へデータを書き込むため、`Program Files` など一�
 
 ## 終了時の処理
 
-アプリ終了時には、変換中のFFmpeg子プロセスを停止し、一時変換ファイルを削除します。ローカルサーバーは使用していません。
+画像の解析・変換も専用の子プロセスで実行し、終了時に停止します。
+
+アプリ終了時には、変換中のFFmpeg子プロセスの停止を待ってから一時変換ファイルを削除します。削除に失敗してもログに記録し、アプリ自体は終了します。終了処理には5秒の上限を設けています。ポータブルEXEはその後に展開先の後片付けを行うため、削除する際は起動用プロセスの終了まで数秒お待ちください。ローカルサーバーは使用していません。
 
 同じポータブルフォルダからの二重起動は防止します。すでに起動している状態でもう一度EXEを実行すると、既存のConvertBoxウィンドウを前面に表示します。
 
@@ -85,17 +96,17 @@ npm run release:portable
 作成後の `dist/` には、単体EXE、専用フォルダ入りZIP、それぞれのSHA-256チェックサムだけが出力されます。
 
 ```text
-dist/ConvertBox-Portable-1.1.1.exe
-dist/ConvertBox-Portable-1.1.1.exe.sha256
-dist/ConvertBox-Portable-1.1.1.zip
-dist/ConvertBox-Portable-1.1.1.zip.sha256
+dist/ConvertBox-Portable-1.3.2.exe
+dist/ConvertBox-Portable-1.3.2.exe.sha256
+dist/ConvertBox-Portable-1.3.2.zip
+dist/ConvertBox-Portable-1.3.2.zip.sha256
 ```
 
 ZIPを展開すると、次の構成になります。
 
 ```text
-ConvertBox-Portable-1.1.1/
-├─ ConvertBox-Portable-1.1.1.exe
+ConvertBox-Portable-1.3.1/
+├─ ConvertBox-Portable-1.3.2.exe
 └─ README.txt
 ```
 
@@ -158,23 +169,44 @@ ConvertBox/
 
 `portable/bin/` には動画・音声解析と変換に使う `ffmpeg.exe` と `ffprobe.exe` を配置しています。PC本体へのインストールや環境変数の変更は行いません。
 
-画像変換には `sharp` を使用します。これもプロジェクト内の依存関係として扱い、PC本体へグローバルインストールしません。
+画像変換には `sharp` を使用し、HEIC / HEIFの読み込みには `heic-decode` と `libheif-js` のWebAssemblyデコーダーを同梱します。これらもプロジェクト内の依存関係として扱い、PC本体へグローバルインストールしません。
 
 公開配布前に、必ず [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を確認してください。同梱中のFFmpegはGPL有効ビルドであり、対応する正確なソースコードとビルド情報を用意しないまま、FFmpegバイナリまたはそれを含むポータブルEXEを公開しないでください。
+
+## 安全のための処理上限
+
+- 動画・音声入力: 20 GiBまで。解析は30秒、変換は2時間まで。
+- 変換出力: 10 GiBまで。上限到達時は変換失敗として扱います。
+- 画像入力: 100 MiB、合計4000万画素、200ページまで。画像処理は60秒まで。
+- HEIC / HEIFデコード: 30秒まで。画素数をデコード前に検証します。
+- アプリの解析・変換は同時に1件。変換済みの未保存ファイルも1件まで。
+
+上限を超えたファイルはエラーを表示して処理を停止します。設定値は `src/converter/resourceLimits.js` にまとめています。
+FFmpeg / ffprobeの通信プロトコルとコンテナ形式も制限しています。
 
 ## 確認用コマンド
 
 ```powershell
 npm run check
+npm run check:security
+npm run check:runtime
 npm run check:video
 npm run check:video-to-audio
+npm run check:shutdown
 npm run check:audio
 npm run check:image
 ```
 
+Windows上で配布EXEを作成した後は、次のコマンドで移動先での起動・通常終了・変換中の終了・一時ファイルのロック中の終了を検証できます。テスト用にコピーしたEXEだけを起動・削除します。
+
+```powershell
+npm run check:portable-shutdown
+npm run check:desktop
+```
+
 ## GitHub公開前チェック
 
-1. `package.json` と画面のバージョンが `1.1.1` であることを確認する。
+1. `package.json` と画面のバージョンが `1.3.1` であることを確認する。
 2. 上記の確認用コマンドをすべて実行する。
 3. `npm run release:portable` でEXE、ZIP、両方のチェックサムを作成する。
 4. ZIP内のREADMEとフォルダ構成を確認する。
@@ -182,7 +214,7 @@ npm run check:image
 6. EXE終了後に `ConvertBox`、`ffmpeg`、`ffprobe` のプロセスが残っていないことを確認する。
 7. FFmpegの対応ソースとライセンス文書をReleaseから取得できる状態にする。
 8. ConvertBox本体をオープンソースとして公開する場合は、用途に合うライセンスを追加する。
-9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.1.1` にする。
+9. GitHub Releaseへ4つの成果物を添付し、バージョンタグを `v1.3.1` にする。
 
 ## 今後の候補
 

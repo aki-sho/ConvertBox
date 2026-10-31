@@ -1,10 +1,13 @@
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { runProcess, terminateActiveProcesses } = require("./processRunner");
+const { LIMITS, assertInputFile } = require("./resourceLimits");
 
-const VIDEO_FORMATS = Object.freeze(["MP4", "MOV", "WebM", "AVI"]);
-const AUDIO_FORMATS = Object.freeze(["MP3", "WAV", "M4A", "AAC"]);
-const activeProcesses = new Set();
+const { FORMATS } = require("../shared/formats");
+const VIDEO_FORMATS = FORMATS.video;
+const AUDIO_FORMATS = FORMATS.audio;
+// Media files must not turn into playlists or fetch network resources.
+const INPUT_ARGUMENTS = ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,webm,avi,mp3,wav,aac", "-threads", "2"];
 
 const VIDEO_ARGUMENTS = Object.freeze({
   MP4: ["-c:v", "libx264", "-preset", "medium", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"],
@@ -17,50 +20,15 @@ const AUDIO_ARGUMENTS = Object.freeze({
   MP3: ["-vn", "-c:a", "libmp3lame", "-b:a", "192k"],
   WAV: ["-vn", "-c:a", "pcm_s16le"],
   M4A: ["-vn", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"],
-  AAC: ["-vn", "-c:a", "aac", "-b:a", "192k", "-f", "adts"]
+  AAC: ["-vn", "-c:a", "aac", "-b:a", "192k", "-f", "adts"],
+  WebM: ["-map", "0:a:0", "-vn", "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "webm"]
 });
-
-function runProcess(executable, args, onOutput) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { windowsHide: true });
-    let stderr = "";
-    activeProcesses.add(child);
-
-    child.stdout.on("data", (chunk) => onOutput?.(chunk.toString()));
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-      if (stderr.length > 12000) stderr = stderr.slice(-12000);
-    });
-    child.on("error", (error) => {
-      activeProcesses.delete(child);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      activeProcesses.delete(child);
-      if (code === 0) {
-        resolve(stderr);
-      } else {
-        reject(new Error(stderr.trim() || `変換処理が終了コード ${code} で停止しました`));
-      }
-    });
-  });
-}
-
-function terminateActiveProcesses() {
-  for (const child of activeProcesses) {
-    try {
-      child.kill("SIGTERM");
-    } catch {
-      // The process may already have exited.
-    }
-  }
-  activeProcesses.clear();
-}
 
 async function analyzeVideo({ filePath, ffprobePath }) {
   if (!filePath || !fs.existsSync(filePath)) {
     throw new Error("選択したファイルが見つかりません");
   }
+  assertInputFile(filePath);
 
   if (!fs.existsSync(ffprobePath)) {
     throw new Error("解析用の ffprobe.exe が見つかりません");
@@ -69,8 +37,9 @@ async function analyzeVideo({ filePath, ffprobePath }) {
   let output = "";
   await runProcess(
     ffprobePath,
-    ["-v", "error", "-show_format", "-show_streams", "-of", "json", filePath],
-    (chunk) => { output += chunk; }
+    ["-v", "error", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-show_format", "-show_streams", "-of", "json", filePath],
+    (chunk) => { output += chunk; },
+    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes }
   );
 
   const metadata = JSON.parse(output);
@@ -97,6 +66,7 @@ async function analyzeAudio({ filePath, ffprobePath }) {
   if (!filePath || !fs.existsSync(filePath)) {
     throw new Error("選択したファイルが見つかりません");
   }
+  assertInputFile(filePath);
 
   if (!fs.existsSync(ffprobePath)) {
     throw new Error("解析用の ffprobe.exe が見つかりません");
@@ -105,8 +75,9 @@ async function analyzeAudio({ filePath, ffprobePath }) {
   let output = "";
   await runProcess(
     ffprobePath,
-    ["-v", "error", "-show_format", "-show_streams", "-of", "json", filePath],
-    (chunk) => { output += chunk; }
+    ["-v", "error", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-show_format", "-show_streams", "-of", "json", filePath],
+    (chunk) => { output += chunk; },
+    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes }
   );
 
   const metadata = JSON.parse(output);
@@ -162,13 +133,16 @@ async function convertWithArguments({
   let progressBuffer = "";
 
   try {
+    assertInputFile(filePath);
     await runProcess(
       ffmpegPath,
-      ["-hide_banner", "-y", "-i", filePath, ...formatArguments[targetFormat], "-progress", "pipe:1", "-nostats", outputPath],
+      ["-hide_banner", "-nostdin", "-y", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-i", filePath,
+        ...formatArguments[targetFormat], "-threads", "2", "-fs", String(LIMITS.outputBytes), "-progress", "pipe:1", "-nostats", outputPath],
       (chunk) => {
         progressBuffer += chunk;
         const lines = progressBuffer.split(/\r?\n/);
         progressBuffer = lines.pop() || "";
+        if (progressBuffer.length > 8192) throw new Error("進捗情報のサイズが不正です");
 
         for (const line of lines) {
           const [key, value] = line.split("=");
@@ -179,6 +153,8 @@ async function convertWithArguments({
         }
       }
     );
+
+    if (fs.statSync(outputPath).size >= LIMITS.outputBytes) throw new Error("出力ファイルの上限（10 GB）を超えました");
 
     onProgress?.(100);
     return { ok: true, outputPath, message: `${targetFormat} への変換が完了しました` };
