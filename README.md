@@ -40,7 +40,7 @@ ImageのSVG出力は、変換元画像をSVG内へ埋め込んで表示を保つ
 
 ## 使い方
 
-GitHubのReleasesページから、通常は `ConvertBox-Portable-1.4.0.zip` をダウンロードします。
+配布用ZIPは `ConvertBox-Portable-1.4.0.zip` です。開発者は下記のビルド手順で生成できます。公開済みの配布版はGitHub Releasesから取得できます。
 
 1. ZIPを展開します。
 2. 作成された `ConvertBox-Portable-1.4.0` フォルダを、書き込み可能な場所へ置きます。
