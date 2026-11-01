@@ -36,21 +36,24 @@ async function check(mode, input) {
   fs.copyFileSync(exe, copiedExe);
   const port = await freePort();
   const launcher = spawn(copiedExe, [`--remote-debugging-port=${port}`], {
-    windowsHide: true, stdio: "ignore",
+    windowsHide: true, stdio: ["ignore", "ignore", "pipe"],
     env: { ...process.env, CONVERTBOX_TEST_INPUT: input }
   });
   let closed = false;
+  let startupErrors = "";
+  launcher.stderr.on("data", (chunk) => { startupErrors = (startupErrors + chunk.toString()).slice(-12000); });
   let socket;
   let locker;
   launcher.once("exit", () => { closed = true; });
   launcher.once("error", (error) => { console.error(error); closed = true; });
   try {
     const target = await waitUntil(async () => {
+      if (closed) throw new Error(`Portable exited during startup: ${startupErrors}`);
       try {
         const targets = await fetch(`http://127.0.0.1:${port}/json`).then((r) => r.json());
         return targets.find((item) => item.title === "ConvertBox");
       } catch { return false; }
-    }, "portable window");
+    }, "portable window", 60000);
     socket = new WebSocket(target.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
       socket.addEventListener("open", resolve, { once: true });
