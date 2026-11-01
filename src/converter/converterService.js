@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { runProcess, terminateActiveProcesses } = require("./processRunner");
 const { LIMITS, assertInputFile } = require("./resourceLimits");
+const { PRESETS, normalizeOptions } = require("../shared/conversionOptions");
 
 const { FORMATS } = require("../shared/formats");
 const VIDEO_FORMATS = FORMATS.video;
@@ -24,7 +25,7 @@ const AUDIO_ARGUMENTS = Object.freeze({
   WebM: ["-map", "0:a:0", "-vn", "-c:a", "libopus", "-b:a", "128k", "-ar", "48000", "-f", "webm"]
 });
 
-async function analyzeVideo({ filePath, ffprobePath }) {
+async function analyzeVideo({ filePath, ffprobePath, signal }) {
   if (!filePath || !fs.existsSync(filePath)) {
     throw new Error("選択したファイルが見つかりません");
   }
@@ -39,7 +40,7 @@ async function analyzeVideo({ filePath, ffprobePath }) {
     ffprobePath,
     ["-v", "error", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-show_format", "-show_streams", "-of", "json", filePath],
     (chunk) => { output += chunk; },
-    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes }
+    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes, signal }
   );
 
   const metadata = JSON.parse(output);
@@ -62,7 +63,7 @@ async function analyzeVideo({ filePath, ffprobePath }) {
   };
 }
 
-async function analyzeAudio({ filePath, ffprobePath }) {
+async function analyzeAudio({ filePath, ffprobePath, signal }) {
   if (!filePath || !fs.existsSync(filePath)) {
     throw new Error("選択したファイルが見つかりません");
   }
@@ -77,7 +78,7 @@ async function analyzeAudio({ filePath, ffprobePath }) {
     ffprobePath,
     ["-v", "error", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-show_format", "-show_streams", "-of", "json", filePath],
     (chunk) => { output += chunk; },
-    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes }
+    { timeoutMs: LIMITS.probeTimeoutMs, maxStdoutBytes: LIMITS.probeOutputBytes, signal }
   );
 
   const metadata = JSON.parse(output);
@@ -107,7 +108,9 @@ async function convertWithArguments({
   ffmpegPath,
   durationSeconds,
   onProgress,
-  mediaLabel
+  mediaLabel,
+  options,
+  signal
 }) {
   if (!filePath || !fs.existsSync(filePath)) {
     return { ok: false, message: "選択したファイルが見つかりません" };
@@ -133,11 +136,19 @@ async function convertWithArguments({
   let progressBuffer = "";
 
   try {
+    const preset = PRESETS[normalizeOptions(options).preset];
+    const argumentsForFormat = [...formatArguments[targetFormat]];
+    for (let index = 0; index < argumentsForFormat.length - 1; index++) {
+      const flag = argumentsForFormat[index];
+      if (flag === "-crf") argumentsForFormat[index + 1] = String(targetFormat === "WebM" ? preset.webmCrf : preset.crf);
+      if (flag === "-q:v") argumentsForFormat[index + 1] = String(preset.aviQuality);
+      if (flag === "-b:a") argumentsForFormat[index + 1] = `${targetFormat === "WebM" ? preset.opusKbps : preset.audioKbps}k`;
+    }
     assertInputFile(filePath);
     await runProcess(
       ffmpegPath,
       ["-hide_banner", "-nostdin", "-y", "-max_alloc", "268435456", ...INPUT_ARGUMENTS, "-i", filePath,
-        ...formatArguments[targetFormat], "-threads", "2", "-fs", String(LIMITS.outputBytes), "-progress", "pipe:1", "-nostats", outputPath],
+        ...argumentsForFormat, "-threads", "2", "-fs", String(LIMITS.outputBytes), "-progress", "pipe:1", "-nostats", outputPath],
       (chunk) => {
         progressBuffer += chunk;
         const lines = progressBuffer.split(/\r?\n/);
@@ -151,7 +162,8 @@ async function convertWithArguments({
             onProgress?.(percent);
           }
         }
-      }
+      },
+      { signal }
     );
 
     if (fs.statSync(outputPath).size >= LIMITS.outputBytes) throw new Error("出力ファイルの上限（10 GB）を超えました");
@@ -159,31 +171,31 @@ async function convertWithArguments({
     onProgress?.(100);
     return { ok: true, outputPath, message: `${targetFormat} への変換が完了しました` };
   } catch (error) {
-    return { ok: false, message: `${mediaLabel}の変換に失敗しました`, detail: error.message };
+    return { ok: false, canceled: signal?.aborted || error.name === "AbortError", message: signal?.aborted ? "変換を中止しました" : `${mediaLabel}の変換に失敗しました`, detail: error.message };
   }
 }
 
-async function convertVideo({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress }) {
+async function convertVideo({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal }) {
   return convertWithArguments({
-    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress,
+    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal,
     supportedFormats: VIDEO_FORMATS,
     formatArguments: VIDEO_ARGUMENTS,
     mediaLabel: "動画"
   });
 }
 
-async function convertAudio({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress }) {
+async function convertAudio({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal }) {
   return convertWithArguments({
-    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress,
+    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal,
     supportedFormats: AUDIO_FORMATS,
     formatArguments: AUDIO_ARGUMENTS,
     mediaLabel: "音声"
   });
 }
 
-async function extractAudio({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress }) {
+async function extractAudio({ filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal }) {
   return convertWithArguments({
-    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress,
+    filePath, outputPath, targetFormat, ffmpegPath, durationSeconds, onProgress, options, signal,
     supportedFormats: AUDIO_FORMATS,
     formatArguments: AUDIO_ARGUMENTS,
     mediaLabel: "動画から音声"

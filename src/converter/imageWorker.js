@@ -4,6 +4,7 @@ const { IMAGE_FORMATS, getExtension } = require("../shared/formats");
 const { decodeHeic } = require("./heicDecoder");
 const { LIMITS, assertInputFile, assertImageDimensions } = require("./resourceLimits");
 const IMAGE_OPTIONS = { limitInputPixels: LIMITS.imagePixels, failOn: "warning" };
+const { PRESETS, normalizeOptions } = require("../shared/conversionOptions");
 
 function isHeic(filePath) {
   return ["HEIC", "HEIF"].includes(getExtension(filePath));
@@ -47,7 +48,7 @@ async function analyzeImage({ filePath }) {
   };
 }
 
-async function convertImage({ filePath, outputPath, targetFormat, onProgress }) {
+async function convertImage({ filePath, outputPath, targetFormat, onProgress, options }) {
   if (!filePath || !fs.existsSync(filePath)) {
     return { ok: false, message: "選択したファイルが見つかりません" };
   }
@@ -61,17 +62,43 @@ async function convertImage({ filePath, outputPath, targetFormat, onProgress }) 
   }
 
   try {
+    const settings = normalizeOptions(options);
+    const quality = PRESETS[settings.preset].imageQuality;
     assertInputFile(filePath, LIMITS.imageBytes);
     // Validate total animation dimensions/page count even when exporting a still.
-    await analyzeImage({ filePath });
+    const source = await analyzeImage({ filePath });
     onProgress?.(10);
     let pipeline = await openImage(filePath, { animated: targetFormat === "GIF" });
+    const transform = (image) => {
+      if (settings.image.autoOrient) image = image.autoOrient();
+      if (settings.image.rotation) image = image.rotate(settings.image.rotation);
+      if (settings.image.width || settings.image.height) image = image.resize({
+        width: settings.image.width || undefined, height: settings.image.height || undefined, fit: "inside", withoutEnlargement: true
+      });
+      return image;
+    };
+    let animation = {};
+    if (source.pages > 1 && targetFormat === "GIF") {
+      const metadata = await sharp(filePath, { ...IMAGE_OPTIONS, animated: true }).metadata();
+      animation = { delay: metadata.delay, loop: metadata.loop };
+      // libvips cannot rotate a multi-page image by 90/270 degrees directly.
+      // Transform frames individually, then reassemble their bounded raw pixels.
+      if (settings.image.rotation % 180 !== 0) {
+        const frames = [];
+        let info;
+        for (let page = 0; page < source.pages; page++) {
+          const frame = await transform(sharp(filePath, { ...IMAGE_OPTIONS, page, pages: 1 })).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+          frames.push(frame.data);
+          info = frame.info;
+        }
+        pipeline = sharp(Buffer.concat(frames), { raw: { width: info.width, height: info.height * source.pages, channels: 4, pageHeight: info.height }, ...IMAGE_OPTIONS });
+      } else pipeline = transform(pipeline);
+    } else pipeline = transform(pipeline);
 
     if (targetFormat === "SVG") {
-      const metadata = await pipeline.metadata();
-      const pngBuffer = await pipeline.png().toBuffer();
-      const width = metadata.width || 1;
-      const height = metadata.pageHeight || metadata.height || 1;
+      const { data: pngBuffer, info } = await pipeline.png().toBuffer({ resolveWithObject: true });
+      const width = info.width;
+      const height = info.height;
       const svg = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
@@ -81,13 +108,13 @@ async function convertImage({ filePath, outputPath, targetFormat, onProgress }) 
       await fs.promises.writeFile(outputPath, svg, "utf8");
     } else {
       if (targetFormat === "JPG" || targetFormat === "JPEG") {
-        pipeline = pipeline.flatten({ background: "#ffffff" }).jpeg({ quality: 90 });
+        pipeline = pipeline.flatten({ background: "#ffffff" }).jpeg({ quality });
       } else if (targetFormat === "PNG") {
-        pipeline = pipeline.png({ compressionLevel: 9 });
+        pipeline = pipeline.png({ compressionLevel: settings.preset === "compact" ? 9 : settings.preset === "high" ? 3 : 6 });
       } else if (targetFormat === "GIF") {
-        pipeline = pipeline.gif({ effort: 5 });
+        pipeline = pipeline.gif({ effort: 5, colours: settings.preset === "compact" ? 96 : settings.preset === "high" ? 256 : 192, ...animation });
       } else if (targetFormat === "WebP") {
-        pipeline = pipeline.webp({ quality: 90 });
+        pipeline = pipeline.webp({ quality });
       }
 
       await pipeline.toFile(outputPath);

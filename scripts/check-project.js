@@ -6,6 +6,11 @@ const { VIDEO_FORMATS, AUDIO_FORMATS, extractAudio } = require("../src/converter
 const { IMAGE_FORMATS } = require("../src/converter/imageConverterService");
 
 const requiredFiles = [
+  "src/shared/conversionOptions.js",
+  "src/main/conversionQueue.js",
+  "src/main/outputFiles.js",
+  "scripts/check-features.js",
+  "scripts/check-feature-desktop.js",
   "src/main/main.js",
   "src/main/preload.js",
   "src/renderer/index.html",
@@ -38,7 +43,7 @@ for (const file of requiredFiles) {
   }
 }
 
-if (packageJson.version !== "1.3.2") {
+if (packageJson.version !== "1.4.0") {
   throw new Error(`本番バージョンが正しくありません: ${packageJson.version}`);
 }
 

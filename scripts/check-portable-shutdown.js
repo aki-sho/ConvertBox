@@ -76,16 +76,16 @@ async function check(mode, input) {
       await evaluate("document.querySelector('#select-file-button').click()");
       await waitUntil(() => evaluate("!document.querySelector('#video-analysis').hidden"), "input analysis");
       await evaluate("document.querySelector('#target-format').value = 'WebM'; document.querySelector('#convert-button').click()");
-      await waitUntil(() => evaluate("document.querySelector('#convert-button').disabled"), "conversion start");
+      await waitUntil(() => evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), "conversion start");
       await delay(300);
-      assert.equal(await evaluate("document.querySelector('#convert-button').disabled"), true, "must close during conversion");
+      assert.equal(await evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), true, "must close during conversion");
     }
     if (mode === "image") {
       await evaluate("document.querySelector('[data-category=image]').click()");
       await evaluate("document.querySelector('#select-file-button').click()");
       await waitUntil(() => evaluate("!document.querySelector('#image-analysis').hidden"), "HEIC analysis");
       await evaluate("document.querySelector('#target-format').value = 'PNG'; document.querySelector('#convert-button').click()");
-      await waitUntil(() => evaluate("document.querySelector('#convert-button').disabled"), "image conversion start");
+      await waitUntil(() => evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), "image conversion start");
     }
     if (mode === "locked") {
       const lockedFile = path.join(moved, "ConvertBox-PortableData", "temp", "working", "locked.tmp");
