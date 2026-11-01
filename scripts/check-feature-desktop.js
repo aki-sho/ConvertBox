@@ -100,7 +100,7 @@ async function main() {
   }
   console.log("Desktop features: multi-select, actual File drop, fake File rejection, batch save, collision protection, image settings passed");
   // Import a real video without changing the dialog test fixture.
-  await evaluate("document.querySelector('[data-category=video]').click()");
+  await evaluate("document.querySelector('#image-width').value='16001'; document.querySelector('[data-category=video]').click()");
   await send("DOM.setFileInputFiles", { nodeId: node.nodeId, files: [video] });
   await evaluate("const videoDrop = new DataTransfer(); videoDrop.items.add(document.querySelector('#drop-test-input').files[0]); document.querySelector('#drop-zone').dispatchEvent(new DragEvent('drop', { dataTransfer: videoDrop, bubbles: true, cancelable: true }))");
   await wait("!document.querySelector('#video-analysis').hidden", "video analysis");

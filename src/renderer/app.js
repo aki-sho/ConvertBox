@@ -116,10 +116,10 @@ async function acceptFiles(result) {
 function readSettings() {
   const dimension = (id) => $(id).value.trim() === "" ? null : Number($(id).value);
   return { category: activeCategory, targetFormat: $("#target-format").value,
-    options: { preset: $("#quality-preset").value, image: {
+    options: { preset: $("#quality-preset").value, image: activeCategory === "image" ? {
       width: dimension("#image-width"), height: dimension("#image-height"),
       rotation: Number($("#image-rotation").value), autoOrient: $("#auto-orient").checked
-    } } };
+    } : {} } };
 }
 
 async function saveConversion(id) {
