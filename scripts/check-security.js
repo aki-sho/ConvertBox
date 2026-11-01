@@ -33,17 +33,30 @@ async function checkIpc() {
     setPath() {}, setAppLogsPath() {}, on() {}, quit() {}, getVersion: () => "test",
     whenReady: () => ({ then(callback) { ready = callback; return { catch() {} }; } }) };
   let finishConversion;
+  let conversionSuccessful = false;
+  let releaseCopy;
   let calls = 0;
   const converter = {
     analyzeVideo: async () => ({ width: 1 }), analyzeAudio: async () => ({}),
-    convertVideo: async () => { calls++; await new Promise((resolve) => { finishConversion = resolve; }); return { ok: false }; },
+    convertVideo: async ({ outputPath }) => {
+      calls++;
+      await new Promise((resolve) => { finishConversion = resolve; });
+      if (conversionSuccessful) fs.writeFileSync(outputPath, "converted");
+      return { ok: conversionSuccessful };
+    },
     terminateActiveProcesses: async () => {}
   };
   const stubs = {
-    fs: { ...fs, rmSync(file, ...args) { removals.push(file); return fs.rmSync(file, ...args); } },
+    fs: { ...fs, rmSync(file, ...args) { removals.push(file); return fs.rmSync(file, ...args); },
+      promises: { ...fs.promises, copyFile: async (...args) => { await new Promise((resolve) => { releaseCopy = resolve; }); return fs.promises.copyFile(...args); } } },
     path, crypto: require("node:crypto"), "node:url": require("node:url"),
-    electron: { app, BrowserWindow: function (value) { options = value; return win; }, dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [input] }) }, ipcMain: { handle(name, handler) { handlers.set(name, handler); } } },
+    electron: { app, BrowserWindow: function (value) { options = value; return win; }, dialog: {
+      showOpenDialog: async () => ({ canceled: false, filePaths: [input] }),
+      showSaveDialog: async () => ({ canceled: false, filePath: path.join(testRoot, "saved.mp4") })
+    }, ipcMain: { handle(name, handler) { handlers.set(name, handler); } } },
     "../shared/formats": require("../src/shared/formats"), "./security": require("../src/main/security"),
+    "../shared/conversionOptions": require("../src/shared/conversionOptions"),
+    "./conversionQueue": require("../src/main/conversionQueue"), "./outputFiles": require("../src/main/outputFiles"),
     "../converter/resourceLimits": require("../src/converter/resourceLimits"),
     "./shutdown": { installShutdown: () => ({ isQuitting: () => false }) },
     "../converter/converterService": converter, "../converter/imageConverterService": {},
@@ -88,6 +101,18 @@ async function checkIpc() {
   finishConversion();
   await conversion;
   assert.equal(calls, 1);
+  conversionSuccessful = true;
+  const nextConversion = invoke("conversion:request", { category: "video", filePath: input, targetFormat: "MP4" });
+  await new Promise((resolve) => setImmediate(resolve));
+  finishConversion();
+  const nextResult = await nextConversion;
+  const downloading = invoke("conversion:download", nextResult.conversionId);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await invoke("conversion:download", nextResult.conversionId)).ok, false);
+  await assert.rejects(invoke("conversion:discard", nextResult.conversionId), /保存/);
+  releaseCopy();
+  assert.equal((await downloading).ok, true);
+  assert.equal(fs.readFileSync(path.join(testRoot, "saved.mp4"), "utf8"), "converted");
   console.log("Security: IPC sender/frame, selected paths, traversal rejection, sandbox/navigation, concurrency passed");
 }
 
@@ -159,6 +184,7 @@ async function checkImageDeadlines() {
       } };
       if (name === "./resourceLimits") return require("../src/converter/resourceLimits");
       if (name === "../shared/formats") return require("../src/shared/formats");
+      if (name === "../shared/conversionOptions") return require("../src/shared/conversionOptions");
       return require(name);
     },
     module: imageModule, __dirname: path.join(root, "src/converter"), process,

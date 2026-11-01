@@ -1,0 +1,42 @@
+name: Verify conversion features
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install verified FFmpeg runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $manifest = Get-Content portable/bin/ffmpeg-runtime.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg.7z'
+          Invoke-WebRequest -Uri $manifest.archiveUrl -OutFile $archive -TimeoutSec 180
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $manifest.archiveSha256) { throw 'FFmpeg archive hash mismatch' }
+          $extract = Join-Path $env:RUNNER_TEMP 'ffmpeg-verified'
+          & ./node_modules/7zip-bin/win/x64/7za.exe x $archive ('-o' + $extract) -y
+          if ($LASTEXITCODE -ne 0) { throw 'FFmpeg extraction failed' }
+          $folder = Get-ChildItem -LiteralPath $extract -Directory | Select-Object -First 1
+          foreach ($name in @('ffmpeg.exe', 'ffprobe.exe')) {
+            Copy-Item -LiteralPath (Join-Path $folder.FullName ('bin/' + $name)) -Destination (Join-Path 'portable/bin' $name)
+          }
+      - name: Validate security and actual conversions
+        shell: pwsh
+        run: |
+          foreach ($check in @('check', 'check:runtime', 'check:security', 'check:features', 'check:video', 'check:video-to-audio', 'check:audio', 'check:image', 'check:shutdown')) {
+            & npm.cmd run $check
+            if ($LASTEXITCODE -ne 0) { throw "Failed: $check" }
+          }

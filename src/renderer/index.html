@@ -40,13 +40,16 @@
           <span class="step-number">2</span>
           <div>
             <h2>ファイルを選択</h2>
-            <p>ローカルにあるファイルを1つ選択します。</p>
+            <p>最大100件まで選択できます。ファイルのドロップにも対応しています。</p>
           </div>
         </div>
 
-        <button id="select-file-button" class="file-select-button" type="button">
-          ファイルを選択
-        </button>
+        <div id="drop-zone" class="drop-zone" tabindex="0" aria-label="変換元ファイルのドロップ領域">
+          <button id="select-file-button" class="file-select-button" type="button">ファイルを選択（複数可）</button>
+          <p>または、ここへファイルをドラッグ＆ドロップ</p>
+        </div>
+        <ul id="selected-files" class="selected-files" aria-label="選択したファイル"></ul>
+        <button id="clear-selection" class="secondary-button" type="button" hidden>選択をクリア</button>
 
         <dl class="file-details" aria-live="polite">
           <div><dt>ファイル名</dt><dd id="file-name">未選択</dd></div>
@@ -97,9 +100,42 @@
         <label class="select-label" for="target-format">変換先形式</label>
         <select id="target-format"></select>
 
-        <button id="convert-button" class="convert-button" type="button">変換する</button>
+        <label class="select-label settings-label" for="quality-preset">品質・容量</label>
+        <select id="quality-preset">
+          <option value="high">高画質・高音質</option>
+          <option value="standard" selected>標準</option>
+          <option value="compact">容量優先</option>
+        </select>
+        <p class="help-text">ファイルサイズは内容によって変わります。PNG・SVG・WAVは画質・音質を劣化させない形式です。</p>
+
+        <fieldset id="image-options" class="image-options" hidden>
+          <legend>画像のサイズ・向き</legend>
+          <div class="settings-grid">
+            <label>最大幅（px）<input id="image-width" type="number" min="1" max="16000" placeholder="元の幅" /></label>
+            <label>最大高さ（px）<input id="image-height" type="number" min="1" max="16000" placeholder="元の高さ" /></label>
+            <label>回転<select id="image-rotation"><option value="0">回転なし</option><option value="90">右に90度</option><option value="180">180度</option><option value="270">左に90度</option></select></label>
+          </div>
+          <label class="checkbox-label"><input id="auto-orient" type="checkbox" checked /> EXIFに合わせて向きを自動補正</label>
+          <p class="help-text">縦横比を維持して指定サイズ内に縮小します。空欄なら元のサイズを維持し、拡大はしません。</p>
+        </fieldset>
+
+        <div class="divider"></div>
+        <div class="section-heading compact"><span class="step-number">4</span><div><h2>保存先と変換キュー</h2><p>複数件の変換では、保存先フォルダを一度だけ指定します。</p></div></div>
+        <div class="output-controls">
+          <button id="select-output-directory" class="secondary-button" type="button">一括保存先を選択</button>
+          <button id="clear-output-directory" class="secondary-button" type="button" hidden>個別保存に戻す</button>
+        </div>
+        <p id="output-directory" class="help-text">未指定：1件の変換後に保存先を選びます</p>
+        <p class="help-text">同名ファイルがある場合は連番を付けます。元ファイルと既存の保存ファイルは上書きしません。</p>
+
+        <button id="convert-button" class="convert-button" type="button">キューへ追加して変換</button>
 
         <button id="download-button" class="download-button" type="button" hidden>ダウンロード</button>
+        <div class="queue-toolbar">
+          <button id="cancel-all" class="secondary-button danger-button" type="button" disabled>実行中・待機中をすべて中止</button>
+          <button id="clear-finished" class="secondary-button" type="button">保存済み・失敗・中止をクリア</button>
+        </div>
+        <ol id="conversion-queue" class="conversion-queue" aria-label="変換キュー" aria-live="polite"></ol>
 
         <div id="progress-area" class="progress-area" hidden>
           <div class="progress-label"><span>変換中</span><span id="progress-percent">0%</span></div>

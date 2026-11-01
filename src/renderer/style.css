@@ -16,10 +16,10 @@ body {
     linear-gradient(180deg, #f8faff 0%, #edf2f8 100%);
 }
 
-button, select { font: inherit; }
+button, select, input { font: inherit; }
 
 .app-shell {
-  width: min(840px, calc(100% - 48px));
+  width: min(960px, calc(100% - 48px));
   margin: 0 auto;
   padding: 38px 0 28px;
 }
@@ -179,6 +179,37 @@ progress { width: 100%; height: 10px; accent-color: #3157d5; }
 .status[data-type="error"] { border-color: #d65353; color: #8d2525; background: #fff0f0; }
 
 footer { margin-top: 18px; color: #7c879b; font-size: 11px; text-align: center; }
+
+[hidden] { display: none !important; }
+.drop-zone { border: 1px dashed #8198df; border-radius: 14px; padding: 12px; background: #f7f9ff; }
+.drop-zone p { text-align: center; color: #66738c; font-size: 12px; margin-bottom: 3px; }
+.drop-zone .file-select-button { border-style: solid; }
+.drop-zone.drag-over { outline: 3px solid #3157d5; background: #eaf0ff; }
+.selected-files { list-style: none; padding: 0; max-height: 150px; overflow: auto; }
+.selected-files li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13px; }
+.selected-files span { overflow-wrap: anywhere; }
+.selected-files button, .job-actions button, .secondary-button { border: 1px solid #cdd6e6; border-radius: 8px; padding: 8px 12px; color: #38517d; background: #f6f8fd; cursor: pointer; }
+button:disabled { cursor: default; opacity: 0.6; }
+button:focus-visible, input:focus-visible, .drop-zone:focus-visible { outline: 3px solid #8198df; outline-offset: 2px; }
+.settings-label { margin-top: 16px; }
+.help-text { font-size: 12px; line-height: 1.6; color: #66738c; overflow-wrap: anywhere; }
+.image-options { margin-top: 20px; border: 1px solid #dbe3f2; border-radius: 12px; padding: 16px; }
+.image-options legend { font-size: 13px; font-weight: 700; }
+.settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.settings-grid label { font-size: 12px; color: #59667e; }
+.settings-grid input { width: 100%; padding: 13px 10px; margin-top: 6px; border: 1px solid #cdd6e6; border-radius: 8px; }
+.settings-grid select { margin-top: 6px; }
+.checkbox-label { display: flex; gap: 8px; align-items: center; margin-top: 15px; font-size: 13px; }
+.output-controls, .queue-toolbar, .job-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.queue-toolbar { margin-top: 16px; }
+.danger-button { color: #9d3838; }
+.conversion-queue { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
+.conversion-queue li { border: 1px solid #dbe3f2; border-radius: 12px; padding: 14px; overflow-wrap: anywhere; }
+.conversion-queue li[data-state="failed"] { border-color: #d65353; background: #fff8f8; }
+.conversion-queue li[data-state="running"] { border-color: #5375dd; background: #f6f8ff; }
+.conversion-queue strong { font-size: 14px; }
+.conversion-queue p { margin: 7px 0; font-size: 12px; color: #59667e; }
+.job-actions { margin-top: 10px; }
 
 @media (max-width: 760px) {
   .app-shell { width: calc(100% - 30px); padding-top: 25px; }

@@ -2,7 +2,8 @@ const { spawn } = require("node:child_process");
 const { LIMITS } = require("./resourceLimits");
 const activeProcesses = new Set();
 
-function runProcess(executable, args, onOutput, { timeoutMs = LIMITS.conversionTimeoutMs, maxStdoutBytes = Infinity } = {}) {
+function runProcess(executable, args, onOutput, { timeoutMs = LIMITS.conversionTimeoutMs, maxStdoutBytes = Infinity, signal } = {}) {
+  if (signal?.aborted) return Promise.reject(Object.assign(new Error("処理を中止しました"), { name: "AbortError" }));
   if (activeProcesses.size >= LIMITS.activeProcesses) return Promise.reject(new Error("同時に実行できる処理数の上限に達しました"));
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -16,6 +17,8 @@ function runProcess(executable, args, onOutput, { timeoutMs = LIMITS.conversionT
       child.kill("SIGKILL");
     };
     const timer = setTimeout(() => fail(new Error("処理時間の上限を超えたため停止しました")), timeoutMs);
+    const abort = () => fail(Object.assign(new Error("処理を中止しました"), { name: "AbortError" }));
+    signal?.addEventListener("abort", abort, { once: true });
     child.stdout.on("data", (chunk) => {
       stdoutBytes += chunk.length;
       if (stdoutBytes > maxStdoutBytes) return fail(new Error("解析結果のサイズが上限を超えています"));
@@ -26,11 +29,13 @@ function runProcess(executable, args, onOutput, { timeoutMs = LIMITS.conversionT
     child.stderr.on("data", (chunk) => { stderr = (stderr + chunk.toString()).slice(-12000); });
     child.once("error", (error) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       activeProcesses.delete(child);
       reject(error);
     });
     child.once("close", (code) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       activeProcesses.delete(child);
       if (failure) reject(failure);
       else if (code === 0) resolve(stderr);

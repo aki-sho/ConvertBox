@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { CONVERSION_FORMATS } = require("../shared/formats");
+const { normalizeOptions } = require("../shared/conversionOptions");
 
 function validateConversionRequest(request) {
   if (!request || typeof request !== "object" || Array.isArray(request)
@@ -11,6 +12,7 @@ function validateConversionRequest(request) {
     || typeof request.filePath !== "string") {
     throw new Error("対応するカテゴリ・変換元ファイル・変換先形式を指定してください");
   }
+  normalizeOptions(request.options);
 }
 
 function isTrustedSender(event, window, rendererUrl) {

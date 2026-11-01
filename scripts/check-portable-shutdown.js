@@ -36,21 +36,24 @@ async function check(mode, input) {
   fs.copyFileSync(exe, copiedExe);
   const port = await freePort();
   const launcher = spawn(copiedExe, [`--remote-debugging-port=${port}`], {
-    windowsHide: true, stdio: "ignore",
+    windowsHide: true, stdio: ["ignore", "ignore", "pipe"],
     env: { ...process.env, CONVERTBOX_TEST_INPUT: input }
   });
   let closed = false;
+  let startupErrors = "";
+  launcher.stderr.on("data", (chunk) => { startupErrors = (startupErrors + chunk.toString()).slice(-12000); });
   let socket;
   let locker;
   launcher.once("exit", () => { closed = true; });
   launcher.once("error", (error) => { console.error(error); closed = true; });
   try {
     const target = await waitUntil(async () => {
+      if (closed) throw new Error(`Portable exited during startup: ${startupErrors}`);
       try {
         const targets = await fetch(`http://127.0.0.1:${port}/json`).then((r) => r.json());
         return targets.find((item) => item.title === "ConvertBox");
       } catch { return false; }
-    }, "portable window");
+    }, "portable window", 60000);
     socket = new WebSocket(target.webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
       socket.addEventListener("open", resolve, { once: true });
@@ -76,16 +79,16 @@ async function check(mode, input) {
       await evaluate("document.querySelector('#select-file-button').click()");
       await waitUntil(() => evaluate("!document.querySelector('#video-analysis').hidden"), "input analysis");
       await evaluate("document.querySelector('#target-format').value = 'WebM'; document.querySelector('#convert-button').click()");
-      await waitUntil(() => evaluate("document.querySelector('#convert-button').disabled"), "conversion start");
+      await waitUntil(() => evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), "conversion start");
       await delay(300);
-      assert.equal(await evaluate("document.querySelector('#convert-button').disabled"), true, "must close during conversion");
+      assert.equal(await evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), true, "must close during conversion");
     }
     if (mode === "image") {
       await evaluate("document.querySelector('[data-category=image]').click()");
       await evaluate("document.querySelector('#select-file-button').click()");
       await waitUntil(() => evaluate("!document.querySelector('#image-analysis').hidden"), "HEIC analysis");
       await evaluate("document.querySelector('#target-format').value = 'PNG'; document.querySelector('#convert-button').click()");
-      await waitUntil(() => evaluate("document.querySelector('#convert-button').disabled"), "image conversion start");
+      await waitUntil(() => evaluate("Boolean(document.querySelector('#conversion-queue [data-state=running]'))"), "image conversion start");
     }
     if (mode === "locked") {
       const lockedFile = path.join(moved, "ConvertBox-PortableData", "temp", "working", "locked.tmp");
